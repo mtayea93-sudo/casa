@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MT CASA — Semen Analysis</title>
+<meta name="description" content="Computer-assisted semen analysis — a web version that works offline">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-48.png" type="image/png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#247ecb">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="#cases">
+    <img src="logo.png" alt="CASA logo">
+    <span>MT <b>CASA</b></span>
+  </a>
+  <nav>
+    <a href="#cases">Cases</a>
+    <a href="#newcase">New case</a>
+    <a href="#backup">Backup</a>
+  </nav>
+  <div id="net-status" class="net">…</div>
+</header>
+
+<div id="err-banner" hidden style="position:sticky;top:0;z-index:99;background:#7f1d1d;color:#fff;padding:10px 16px;font-size:14px"></div>
+<div id="update-banner" hidden style="position:sticky;top:0;z-index:99;background:#14532d;color:#fff;padding:8px 16px;font-size:14px">
+  <div style="display:flex;gap:12px;align-items:center">
+    <span>A new update is ready — if you can't see the latest features, click:</span>
+    <button onclick="location.reload()" style="padding:4px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700">Update now</button>
+  </div>
+</div>
+<main id="app">Loading…</main>
+
+<script>
+/* Show any JavaScript error clearly instead of failing silently */
+window.__showErr = function (m) {
+  var b = document.getElementById('err-banner');
+  b.hidden = false;
+  b.textContent = '⚠ ' + m + ' — open the Console (F12 key) and send me the red message';
+};
+window.addEventListener('error', function (e) { window.__showErr(e.message || 'JavaScript error'); });
+window.addEventListener('unhandledrejection', function (e) {
+  window.__showErr((e.reason && e.reason.message) || String(e.reason));
+});
+</script>
+
+<!-- print area: only shows on window.print() -->
+<div id="print-area" class="print-area" dir="ltr"></div>
+
+<div id="toast" class="toast"></div>
+
+<script src="js/vendor/firebase-app-compat.js"></script>
+<script src="js/vendor/firebase-database-compat.js"></script>
+<script src="js/vendor/firebase-auth-compat.js"></script>
+<script src="js/db.js"></script>
+<script src="js/login.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/report.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/analyze.js"></script>
+<script src="js/morpho.js"></script>
+<script src="js/annotate.js"></script>
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+<script>
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'activated' && navigator.serviceWorker.controller) {
+          const b = document.getElementById('update-banner');
+          if (b) b.hidden = false;
+        }
+      });
+    });
+  }).catch(() => {});
+}
+</script>
+<script src="mtayea-signature.js"></script>
+</body>
+</html>

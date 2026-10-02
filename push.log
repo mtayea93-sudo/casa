@@ -1,0 +1,13 @@
+fatal: unable to access 'https://github.com/mtayea93-sudo/casa.git/': GnuTLS recv error (-110): The TLS connection was non-properly terminated.
+retry 1
+fatal: unable to access 'https://github.com/mtayea93-sudo/casa.git/': Failed to connect to github.com port 443 after 135068 ms: Couldn't connect to server
+retry 2
+fatal: unable to access 'https://github.com/mtayea93-sudo/casa.git/': Failed to connect to github.com port 443 after 135433 ms: Couldn't connect to server
+retry 3
+fatal: unable to access 'https://github.com/mtayea93-sudo/casa.git/': Failed to connect to github.com port 443 after 135437 ms: Couldn't connect to server
+retry 4
+fatal: unable to access 'https://github.com/mtayea93-sudo/casa.git/': Failed to connect to github.com port 443 after 135436 ms: Couldn't connect to server
+retry 5
+To https://github.com/mtayea93-sudo/casa.git
+ + ffb6495...9bc2d39 main -> main (forced update)
+PUSH_OK

@@ -1,0 +1,14 @@
+name: guard
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: فحص الملفات الحرجة وإصلاحها لو اتمسحت
+        run: bash .guard/guard.sh

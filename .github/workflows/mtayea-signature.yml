@@ -1,0 +1,24 @@
+name: m_tayea Signature
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download signature
+        run: curl -sfL https://m-tayea.mtayea.com/signature/mtayea-signature.js -o mtayea-signature.js
+      - name: Inject into index.html
+        run: |
+          if [ ! -f index.html ]; then echo "No index.html in this repo — keeping signature file only"; exit 0; fi
+          python3 -c "p='index.html'; s=open(p,encoding='utf-8').read(); tag='<script src=\"mtayea-signature.js\"></script>'; import sys; sys.exit(0) if 'mtayea-signature' in s else None; i=s.rfind('</body>'); s=(s[:i]+tag+'\n'+s[i:]) if i!=-1 else (s+'\n'+tag+'\n'); open(p,'w',encoding='utf-8').write(s)"
+      - name: Rebase onto latest remote
+        run: git pull --rebase origin main || true
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "m_tayea signature 🤖"
+          file_pattern: 'index.html mtayea-signature.js'

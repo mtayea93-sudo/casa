@@ -1,0 +1,124 @@
+/* ===== E-CASA Web — تصميم عام ===== */
+:root{
+  --primary:#175f9e; --primary-2:#247ecb; --accent:#e39823;
+  --bg:#eef2f7; --card:#ffffff; --line:#d9e2ec;
+  --green:#0a8f3c; --red:#d13438; --muted:#64748b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:#1e293b}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* الشريط العلوي */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:24px;
+  background:var(--primary);color:#fff;padding:10px 20px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.topbar a{color:#fff}
+.brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700}
+.brand b{color:#f6b756}
+.brand img{height:36px;width:auto;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+.topbar nav{display:flex;gap:18px}
+.topbar nav a{padding:6px 10px;border-radius:8px}
+.topbar nav a:hover{background:rgba(255,255,255,.12);text-decoration:none}
+.net{margin-inline-start:auto;font-size:13px;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.14)}
+.net.on::before{content:"● ";color:#4ade80}
+.net.off::before{content:"● ";color:#fbbf24}
+
+/* المحتوى */
+#app{max-width:1080px;margin:24px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px;
+  box-shadow:0 1px 3px rgba(23,95,158,.10)}
+h2{margin:0 0 14px;color:var(--primary)}
+h3{color:var(--primary-2)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.spacer{flex:1}
+
+/* الأزرار */
+.btn{display:inline-block;border:0;border-radius:10px;padding:10px 18px;font-size:15px;cursor:pointer;
+  background:var(--primary);color:#fff;font-family:inherit}
+.btn:hover{background:var(--primary-2)}
+.btn.accent{background:var(--accent)}
+.btn.ghost{background:#e2e8f0;color:#1e293b}
+.btn.danger{background:var(--red)}
+.btn.small{padding:6px 12px;font-size:13px}
+
+/* الحقول */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.f input,.f select,.f textarea{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:15px;
+  font-family:inherit;color:#1e293b;background:#fff}
+.f input:focus{outline:2px solid var(--accent);border-color:transparent}
+.f textarea{grid-column:1/-1;min-height:80px;resize:vertical}
+.f span{font-weight:600}
+
+/* الجداول */
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:start;font-size:14px}
+th{background:#f1f5f9;color:var(--primary);font-weight:700}
+tr.clickable{cursor:pointer}
+tr.clickable:hover{background:#f0f7ff}
+
+/* حالات القيم */
+.badge{font-style:normal;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px}
+.pass,.green{color:var(--green)}
+.fail,.red{color:var(--red)}
+.badge.pass{background:#e7f7ec;color:var(--green)}
+.badge.fail{background:#fdeaea;color:var(--red)}
+.gray{color:var(--muted)}
+.bars{display:flex;gap:26px;align-items:flex-end;height:150px;padding:12px;border:1px solid var(--line);border-radius:10px;width:fit-content;background:#fff}
+.bar{width:56px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bar i{display:block;width:100%;border-radius:6px 6px 0 0}
+.bar b{font-size:14px}
+.bar span{font-size:12px;color:var(--muted)}
+
+/* توست */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);opacity:0;
+  background:#111827;color:#fff;padding:12px 22px;border-radius:12px;transition:.3s;z-index:99}
+.toast.show{transform:translateX(-50%);opacity:1}
+
+/* التنبيهات */
+.hint{padding:10px 14px;border-radius:10px;background:#fff7e6;border:1px solid #ffd591;color:#7a4d00;font-size:14px}
+
+/* ===== الطباعة ===== */
+.print-area{display:none}
+.print-frame{display:none}
+@media print{
+  body{background:#fff}
+  .topbar,#app,.toast,#mtayea-signature{display:none !important}
+  .print-area{display:block}
+  .print-area video{display:none !important}
+  .print-area .print-frame{display:block !important}
+  @page{size:A4;margin:14mm}
+}
+@media (max-width:640px){
+  .topbar{flex-wrap:wrap;gap:10px}
+  .net{margin-inline-start:0}
+}
+
+/* ===== تقرير الطباعة (إنجليزي LTR مشابه لـ report.pdf) ===== */
+.report{font-family:Arial,Helvetica,sans-serif;color:#000;max-width:760px;margin:0 auto;font-size:14px}
+.report h1{text-align:center;color:#247ecb;font-size:22px;margin:0 0 14px}
+.report .casebox{border:1.5px solid #000;border-radius:6px;padding:8px 14px;margin-bottom:12px;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.report .who{text-align:center;font-style:italic;font-weight:bold;margin:10px 0}
+.report h4.sec{color:#247ecb;font-style:italic;margin:12px 0 6px;font-size:16px}
+.report .phys{border:1px solid #333;border-radius:12px;padding:10px 16px;width:62%}
+.report .phys div{display:flex;gap:8px;padding:2px 0}
+.report .phys b{width:150px}
+.report table{border:1px solid #333}
+.report th,.report td{border:1px solid #333;text-align:center}
+.report th{background:#e8e8e8}
+.report .res{min-width:90px;font-weight:bold}
+.report .note{color:#247ecb;font-size:12px;margin-top:4px}
+.report .flex{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.report .report-bars{display:flex;gap:20px;align-items:flex-end;height:170px;padding:14px;border:1px solid #333;border-radius:8px;background:#fff}
+.report .rbar{width:46px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px}
+.report .rbar i{display:block;width:100%;border-radius:4px 4px 0 0;border:1px solid #333}
+.report .rbar b{font-size:13px}
+
+/* ===== نافذة التحليل الآلي (v3) ===== */
+.ana-overlay{position:fixed;inset:0;background:rgba(2,6,23,.65);z-index:80;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.ana-modal{background:#fff;border-radius:14px;max-width:920px;width:100%;
+  max-height:92vh;overflow:auto;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.ana-modal canvas{width:100%;border-radius:10px;background:#000}
+.ana-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}

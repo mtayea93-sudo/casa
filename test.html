@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MT CASA — Self test</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">MT <b>CASA — Self test</b></span>
+  <a href="index.html" style="margin-inline-start:auto;color:#fff">→ Back to the app</a>
+</header>
+<main id="app">
+  <div class="card">
+    <h2>System check</h2>
+    <p class="gray">Runs real tests on your device: database, report, camera, offline.</p>
+    <button class="btn accent" id="run">Run tests</button>
+  </div>
+  <div class="card" id="results" hidden>
+    <h3>Results</h3>
+    <table><thead><tr><th>Test</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+</main>
+
+<script src="js/db.js"></script>
+<script src="js/report.js"></script>
+<script src="js/analyze.js"></script>
+<script>
+const rows = document.getElementById('rows');
+const add = (name, ok, extra = '') => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${name}${extra ? ` <small class="gray">${extra}</small>` : ''}</td>
+    <td><b class="${ok === 'skip' ? 'gray' : ok ? 'green' : 'red'}">${
+      ok === 'skip' ? 'SKIP' : ok ? 'PASS' : 'FAIL'}</b></td>`;
+  rows.appendChild(tr);
+};
+
+document.getElementById('run').onclick = async () => {
+  rows.innerHTML = '';
+  document.getElementById('results').hidden = false;
+
+  /* 1) Database */
+  try {
+    await DB.open(); await DB.seed();
+    add('Open local database (IndexedDB)', true);
+  } catch (e) { add('Open database', false, e.message); }
+
+  /* 2) WHO reference & templates */
+  add('WHO reference complete (10 criteria)', Object.keys(DB.REFERENCES).length === 10);
+  add('Input templates (8 groups)', Object.keys(DB.TEMPLATES).length === 8);
+
+  /* 3) Full flow: patient + study + report */
+  try {
+    const pid = await DB.put('patients', { code: 'TEST', name: 'Test patient', age: '30' });
+    const sid = await DB.put('studies', { patientId: pid, date: '2026-10-01',
+      volume: '3', ph: '7.4', concentration: '40', count: '120', pr: '40', np: '30',
+      immotile: '30', motileRatio: '70', normalMorph: '15', tzi: '1.2', sdi: '1.0',
+      wbc: '2', rbc: '1', vcl: '25.5', vsl: '12.3', vap: '18.1', lin: '0.48', wob: '0.71', str: '0.68' });
+    const p = await DB.get('patients', pid);
+    const s = await DB.get('studies', sid);
+    add('Create patient & study and read them back', !!p && !!s);
+
+    const html = Report.build(p, s, DB.REFERENCES, []);
+    add('Report generation', html.includes('Computer Assisted Semen Analysis'));
+    add('Report has no errors (undefined/NaN)',
+      !html.includes('undefined') && !html.includes('NaN'));
+    add('Motion parameters table in report',
+      html.includes('Dynamic Parameters Report (II)'));
+
+    /* test data cleanup */
+    await DB.del('studies', sid);
+    await DB.del('patients', pid);
+    add('Test data cleanup', true);
+  } catch (e) { add('Patient/study/report flow', false, e.message); }
+
+  /* 4) Automatic analysis logic */
+  try {
+    const T = Motility._t, th = { imVCL: 10, prVSL: 5 };
+    const mk = n => { const pts = []; for (let i = 0; i <= n; i++) pts.push({ x: i * 10, y: 0, t: i / n }); return { points: pts }; };
+    const r = T.aggregate([mk(10)], 1, th);
+    add('Analysis: straight line = PR', r.pr === 100 && r.vcl === r.vsl && r.vcl === r.vap);
+    const circ = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * 2 * Math.PI; circ.push({ x: 50 + 40 * Math.cos(a), y: 50 + 40 * Math.sin(a), t: i / 10 }); }
+    add('Analysis: circular motion = NP', T.aggregate([{ points: circ }], 1, th).np === 100);
+  } catch (e) { add('Automatic analysis logic', false, e.message); }
+
+  /* 5) Camera */
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      const t = await navigator.mediaDevices.getUserMedia({ video: true });
+      t.getTracks().forEach(x => x.stop());
+      add('Camera available and permission granted', true);
+    } catch (e) {
+      add('Camera', false, 'Permission denied or no camera: ' + e.message);
+    }
+  } else add('Camera', 'skip', 'getUserMedia not supported — needs HTTPS/localhost');
+
+  /* 6) Service Worker (offline) */
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register('sw.js');
+      add('Service Worker (offline)', true);
+    } catch (e) { add('Service Worker', false, e.message); }
+  } else add('Service Worker', 'skip', 'Not supported in this browser');
+
+  /* 7) OpenCV (needs internet the first time) */
+  if (navigator.onLine) {
+    try {
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+        sc.onload = res; sc.onerror = rej;
+        document.body.appendChild(sc);
+        setTimeout(() => rej(new Error('timeout')), 30000);
+      });
+      const wait = () => window.cv && window.cv.Mat
+        ? add('OpenCV.js engine ready', true)
+        : setTimeout(wait, 200);
+      wait();
+    } catch (e) { add('OpenCV.js', false, e.message); }
+  } else add('OpenCV.js', 'skip', 'Offline — it loads on first internet connection');
+};
+</script>
+</body>
+</html>
