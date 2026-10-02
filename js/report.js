@@ -1,4 +1,4 @@
-/* ===== E-CASA Web — مولّد التقرير (إنجليزي، بنفس شكل E-CASA الكامل) ===== */
+/* ===== E-CASA Web — مولّد التقرير (نسخة منقحة — تقرير متعدد الصفحات بروفيسيونال) ===== */
 const Report = (() => {
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g,
@@ -54,7 +54,7 @@ const Report = (() => {
       ${rows.map(([k, label]) => `<div style="display:flex;justify-content:space-between;gap:18px;padding:1px 0"><span>${label}</span><b>${num(d[k]) != null ? num(d[k]).toFixed(2) : '0'}</b></div>`).join('')}
     </div>`;
 
-  function build(p, s, REF, images = [], videos = [], brand = null) {
+  function build(p, s, REF, images = [], brand = null) {
     const pr = num(s.pr), np = num(s.np), im = num(s.immotile);
     const conc = num(s.concentration), count = num(s.count);
     const labName = (brand && brand.name) || 'MT CASA';
@@ -62,7 +62,34 @@ const Report = (() => {
     const hasDefects = Object.values(d).some(v => num(v) != null && num(v) > 0);
     const normal = num(s.normalMorph);
     const terato = normal != null ? 100 - normal : null;
-    const totalDefects = Object.values(d).reduce((a, v) => a + (num(v) || 0), 0);
+
+    /* الحكم العام حسب مرجع WHO */
+    const fails = ['concentration', 'count', 'pr', 'normal'].filter(k => status(REF, k, s[k]) === 'fail');
+    const verdict = fails.length
+      ? `<div style="border:2px solid #e01f26;border-radius:10px;padding:8px 14px;margin:10px 0;background:#fdecec">
+           <b class="red" style="font-size:15px">⚠ Outside WHO reference limits</b>
+           <span style="color:#333"> — ${fails.length} parameter(s) below reference: ${fails.map(k => esc(REF[k].label)).join(', ')}</span>
+         </div>`
+      : `<div style="border:2px solid #12a03c;border-radius:10px;padding:8px 14px;margin:10px 0;background:#eafbee">
+           <b class="green" style="font-size:15px">✔ Within WHO reference limits</b>
+           <span style="color:#333"> — all measured parameters meet the WHO lower reference limits.</span>
+         </div>`;
+
+    /* الترويسة اللي بتتكرر في كل صفحة */
+    const pageHead = pg => `
+      <div class="rp-head">
+        ${brand && brand.logo ? `<img src="${brand.logo}" class="rp-logo">` : ''}
+        <div class="rp-title">
+          <h1>Computer Assisted Semen Analysis ( ${esc(labName)} )</h1>
+          <div class="rp-case">
+            <span><b>Case Info.:</b> &lt;${esc(p.code)}&gt; ${esc(p.name)}</span>
+            <span><b>DOB \ Age:</b> ${esc(p.age)}</span>
+            <span><b>Study Date:</b> ${esc(s.date)}</span>
+            ${p.refDoctor ? `<span><b>Ref.:</b> ${esc(p.refDoctor)}</span>` : ''}
+          </div>
+        </div>
+        <div class="rp-pg">${pg}</div>
+      </div>`;
 
     const physRow = (label, inner) => `<div><b>${label}:</b><span>${inner}</span></div>`;
 
@@ -81,31 +108,24 @@ const Report = (() => {
       return `<tr><td style="text-align:left">${label}</td><td>${n == null ? '' : n.toFixed(2)}</td><td>${c}</td><td>${t}</td></tr>`;
     };
 
-    return `
-    <div class="report">
-      ${brand && brand.logo ? `<div style="text-align:center;margin-bottom:4px"><img src="${brand.logo}" style="max-height:70px;max-width:220px"></div>` : ''}
-      <h1>Computer Assisted Semen Analysis ( ${esc(labName)} )</h1>
-
-      <div class="casebox">
-        <div>Case Info.: &nbsp;&lt;${esc(p.code)}&gt; &nbsp; ${esc(p.name)}</div>
-        <div>DOB \\ Age: ${esc(p.age)}</div>
-        <div>Study Date: ${esc(s.date)} &nbsp; Reference: ${esc(p.refDoctor || '')}</div>
-      </div>
-
+    /* ---------- الصفحة 1: النتائج الأساسية ---------- */
+    const page1 = `
+    <div class="rpage">
+      ${pageHead('1 / 4')}
       <p class="who">The system follows WHO strict criteria for motility patterns &amp; morphometric assessment of human semen.</p>
-
+      ${verdict}
       <div class="flex">
         <div class="phys">
           <h4 class="sec">Physical properties</h4>
-          ${physRow('Volume (ml)',      cellVal(REF, 'volume', s.volume))}
-          ${physRow('PH',               cellVal(REF, 'ph', s.ph))}
-          ${physRow('Color',            esc(s.color || ''))}
-          ${physRow('Odor',             esc(s.odor || ''))}
-          ${physRow('Viscosity',        esc(s.viscosity || ''))}
-          ${physRow('Liquefaction time',esc(s.liquefactionTime || ''))}
+          ${physRow('Volume (ml)',       cellVal(REF, 'volume', s.volume))}
+          ${physRow('PH',                cellVal(REF, 'ph', s.ph))}
+          ${physRow('Color',             esc(s.color || ''))}
+          ${physRow('Odor',              esc(s.odor || ''))}
+          ${physRow('Viscosity',         esc(s.viscosity || ''))}
+          ${physRow('Liquefaction time', esc(s.liquefactionTime || ''))}
           ${physRow('Liquefaction state',esc(s.liquefactionState || ''))}
-          ${physRow('Abst. days',       esc(s.abstDays || ''))}
-          ${physRow('Agglutination',    esc(s.agglutination || ''))}
+          ${physRow('Abst. days',        esc(s.abstDays || ''))}
+          ${physRow('Agglutination',     esc(s.agglutination || ''))}
         </div>
         <div class="report-bars">
           ${bar('PR', pr, '#12a03c')}
@@ -123,9 +143,24 @@ const Report = (() => {
         ${resultRow('motile', s.motileRatio)}
         ${resultRow('normal', s.normalMorph)}
         ${resultRow('tzi', s.tzi)}
-        ${resultRow(null, s.sdi, 'Sperm Deformity Index SDI', '')}
+        ${resultRow(null, s.sdi, 'Sperm Deformity Index (SDI)', '')}
       </table>
 
+      <h4 class="sec">Cells other than sperms</h4>
+      <table>
+        ${resultRow('wbc', s.wbc, 'White blood cells')}
+        ${resultRow('rbc', s.rbc, 'Red blood cells')}
+        ${resultRow(null, s.spermatogenicCells, 'Spermatogenic cells', '/ H.P.F')}
+      </table>
+
+      <h4 class="sec">Comment</h4>
+      <p style="border:1px solid #333;border-radius:8px;padding:10px;min-height:70px;margin-bottom:0">${esc(s.comment || '')}</p>
+    </div>`;
+
+    /* ---------- الصفحة 2: الديناميك ---------- */
+    const page2 = (pr != null || np != null || im != null || num(s.vcl) != null) ? `
+    <div class="rpage">
+      ${pageHead('2 / 4')}
       ${(pr != null || np != null || im != null) ? `
       <h4 class="sec">Dynamic Parameters Report (I)</h4>
       <table>
@@ -150,9 +185,13 @@ const Report = (() => {
         <p class="note" style="margin:0">VCL: Curvilinear velocity<br>VSL: Straight line velocity<br>VAP: Average path velocity<br>LIN: Linearity (VSL/VCL)<br>WOB: Wobble (VAP/VCL)<br>STR: Straightness (VSL/VAP)</p>
         <img src="assets/path-diagram.png" style="max-width:360px;border:1px solid #333;border-radius:6px">
       </div>` : ''}
+    </div>` : '';
 
-      ${(normal != null || hasDefects) ? `
-      <h4 class="sec" style="text-align:center;font-size:18px;margin-top:16px">Morphology Analysis Report (CASA - WHO)</h4>
+    /* ---------- الصفحة 3: المورفولوجي ---------- */
+    const page3 = (normal != null || hasDefects) ? `
+    <div class="rpage">
+      ${pageHead('3 / 4')}
+      <h4 class="sec" style="text-align:center;font-size:18px">Morphology Analysis Report (CASA - WHO)</h4>
       <div style="display:flex;gap:30px;margin-bottom:8px">
         <div><b>Normal Sperms (Morphology Index):</b> ${normal != null ? normal.toFixed(2) : ''}</div>
         <div><b>Terato Sperms:</b> ${terato != null ? terato.toFixed(0) : ''}</div>
@@ -174,34 +213,24 @@ const Report = (() => {
           </div>
         </div>
       </div>
-      <img src="assets/defects-diagram.png" style="width:100%;max-width:900px;border:1px solid #333;border-radius:6px;margin-top:8px">` : ''}
+      <img src="assets/defects-diagram.png" style="width:100%;max-width:900px;border:1px solid #333;border-radius:6px;margin-top:8px">
+    </div>` : '';
 
-      <h4 class="sec">Cells other than sperms</h4>
-      <table>
-        ${resultRow('wbc', s.wbc, 'White blood cells')}
-        ${resultRow('rbc', s.rbc, 'Red blood cells')}
-        ${resultRow(null, s.spermatogenicCells, 'Spermatogenic cells', '/ H.P.F')}
-      </table>
-
-      ${(images || []).length ? `
+    /* ---------- الصفحة 4: الصور ---------- */
+    const page4 = (images || []).length ? `
+    <div class="rpage">
+      ${pageHead('4 / 4')}
       <h4 class="sec">Morphology Pictures</h4>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        ${images.slice(0, 6).map(u => `<img src="${u}" style="max-width:220px;max-height:220px;border:1px solid #333;border-radius:6px">`).join('')}
-      </div>` : ''}
+        ${images.slice(0, 6).map(u => `<img src="${u}" style="width:31%;flex-grow:1;min-width:150px;height:180px;object-fit:cover;border:1px solid #333;border-radius:6px">`).join('')}
+      </div>
+    </div>` : '';
 
-      ${(videos || []).length ? `
-      <h4 class="sec">Dynamic Videos (Motility)</h4>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        ${videos.map(v => {
-          const src = typeof v === 'string' ? v : v.src;
-          const frame = typeof v === 'string' ? null : v.frame;
-          return `<video src="${src}" controls style="max-width:300px;border:1px solid #333;border-radius:6px;background:#000"></video>` +
-            (frame ? `<img src="${frame}" style="max-width:300px;border:1px solid #333;border-radius:6px" class="print-frame">` : '');
-        }).join('')}
-      </div>` : ''}
-
-      <h4 class="sec">Comment</h4>
-      <p style="border:1px solid #333;border-radius:8px;padding:10px;min-height:60px">${esc(s.comment || '')}</p>
+    const pages = [page1, page2, page3, page4].filter(Boolean);
+    const total = pages.length;
+    return `
+    <div class="report">
+      ${pages.map((pgh, i) => pgh.replace(/\d+ \/ 4/, (i + 1) + ' / ' + total)).join('')}
     </div>`;
   }
 

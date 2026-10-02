@@ -83,10 +83,10 @@ tr.clickable:hover{background:#f0f7ff}
 .print-frame{display:none}
 @media print{
   body{background:#fff}
-  .topbar,#app,.toast,#mtayea-signature{display:none !important}
+  .topbar,#app,.toast,#mtayea-signature,#admin-footer{display:none !important}
   .print-area{display:block}
-  .print-area video{display:none !important}
-  .print-area .print-frame{display:block !important}
+  .report .rpage{page-break-after:always;break-after:page;margin-bottom:0}
+  .report .rpage:last-child{page-break-after:auto;break-after:auto}
   @page{size:A4;margin:14mm}
 }
 @media (max-width:640px){
@@ -96,6 +96,14 @@ tr.clickable:hover{background:#f0f7ff}
 
 /* ===== تقرير الطباعة (إنجليزي LTR مشابه لـ report.pdf) ===== */
 .report{font-family:Arial,Helvetica,sans-serif;color:#000;max-width:760px;margin:0 auto;font-size:14px}
+/* الصفحات المتكررة الترويسة */
+.report .rpage{margin-bottom:22px}
+.report .rp-head{display:flex;gap:14px;align-items:center;border-bottom:2.5px solid #175f9e;padding-bottom:8px;margin-bottom:10px}
+.report .rp-logo{max-height:58px;max-width:150px;object-fit:contain}
+.report .rp-title{flex:1;text-align:center}
+.report .rp-title h1{margin:0 0 6px}
+.report .rp-case{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:12.5px;color:#333;border:1px solid #999;border-radius:6px;padding:4px 10px}
+.report .rp-pg{font-size:11px;color:#888;white-space:nowrap;align-self:flex-start}
 .report h1{text-align:center;color:#247ecb;font-size:22px;margin:0 0 14px}
 .report .casebox{border:1.5px solid #000;border-radius:6px;padding:8px 14px;margin-bottom:12px;
   display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}

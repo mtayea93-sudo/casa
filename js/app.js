@@ -486,12 +486,8 @@ async function pageReport(sid) {
   const media = await DB.byIndex('media', 'studyId', sid);
   const imgUrls = media.filter(m => m.kind === 'image').map(m => DB.urlFor(m));
   const videos = media.filter(m => m.kind === 'video');
-  const vidUrls = await Promise.all(videos.map(async m => {
-    const src = DB.urlFor(m);
-    return { src, frame: await videoFrame(src) };
-  }));
 
-  $('#print-area').innerHTML = Report.build(p, s, DB.REFERENCES, imgUrls, vidUrls, brand);
+  $('#print-area').innerHTML = Report.build(p, s, DB.REFERENCES, imgUrls, brand);
 
   $('#app').innerHTML = `
     <div class="card">
@@ -502,11 +498,11 @@ async function pageReport(sid) {
         <a class="btn ghost" href="#patient/${p.id || 'cases'}">Back</a>
       </div>
       <p class="hint">When printing, choose "Save as PDF" — and enable <b>"Background graphics"</b> in the print dialog so the report colors appear.</p>
-      ${videos.length ? `<p>Attached videos (${videos.length}) — they appear in the printed report.</p>` : ''}
+      ${videos.length ? `<p>Attached videos (${videos.length}) — kept on file; not part of the printed report.</p>` : ''}
       ${imgUrls.length ? `<p>Attached images (${imgUrls.length}) — they appear in the printed report.</p>` : ''}
     </div>
     <div class="card" dir="ltr" style="background:#fff">
-      ${Report.build(p, s, DB.REFERENCES, imgUrls, vidUrls, brand)}
+      ${Report.build(p, s, DB.REFERENCES, imgUrls, brand)}
     </div>`;
 
   $('#print').onclick = () => window.print();
