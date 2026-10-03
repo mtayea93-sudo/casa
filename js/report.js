@@ -104,7 +104,6 @@ const Report = (() => {
     <div class="rpage">
       ${pageHead('1 / 4')}
       <p class="who">The system follows WHO strict criteria for motility patterns &amp; morphometric assessment of human semen.</p>
-      ${verdict}
       <div class="flex">
         <div class="phys">
           <h4 class="sec">Physical properties</h4>
