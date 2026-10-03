@@ -7,15 +7,15 @@
 */
 const SYNC = (() => {
   const FB_CONFIG = {
-    apiKey: "AIzaSyAPawpCwihRHOaPjMzhhcsSDa9WAy0Qx-Q",
-    authDomain: "sakrlab2026.firebaseapp.com",
-    databaseURL: "https://sakrlab2026-default-rtdb.firebaseio.com",
-    projectId: "sakrlab2026",
-    storageBucket: "sakrlab2026.firebasestorage.app",
-    messagingSenderId: "1049726811378",
-    appId: "1:1049726811378:web:0959efa43bad0f7e24e46b"
+    apiKey: "AIzaSyA8XG8XyjwRhmrq76oJjCI-Wdh4dTiQkEc",
+    authDomain: "casa-mtayea.firebaseapp.com",
+    databaseURL: "https://casa-mtayea-default-rtdb.firebaseio.com",
+    projectId: "casa-mtayea",
+    storageBucket: "casa-mtayea.firebasestorage.app",
+    messagingSenderId: "872797782501",
+    appId: "1:872797782501:web:f86c79b103f1014511af0c"
   };
-  const ROOT = 'sakr/ecasa'; /* تحت مسار sakr المسموح في قواعد Firebase */
+  const ROOT = 'ecasa'; /* مسار المشروع المخصوص casa-mtayea */
   const KEYS = ['patients', 'studies', 'meta'];
   let db = null;
   const state = { ready: false, connected: false, failed: false, lastSync: 0, applying: false };
