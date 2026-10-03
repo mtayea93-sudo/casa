@@ -64,18 +64,6 @@ const Report = (() => {
     const normal = num(s.normalMorph);
     const terato = normal != null ? 100 - normal : null;
 
-    /* الحكم العام حسب مرجع WHO */
-    const fails = ['concentration', 'count', 'pr', 'normal'].filter(k => status(REF, k, s[k]) === 'fail');
-    const verdict = fails.length
-      ? `<div style="border:2px solid #e01f26;border-radius:10px;padding:8px 14px;margin:10px 0;background:#fdecec">
-           <b class="red" style="font-size:15px">⚠ Outside WHO reference limits</b>
-           <span style="color:#333"> — ${fails.length} parameter(s) below reference: ${fails.map(k => esc(REF[k].label)).join(', ')}</span>
-         </div>`
-      : `<div style="border:2px solid #12a03c;border-radius:10px;padding:8px 14px;margin:10px 0;background:#eafbee">
-           <b class="green" style="font-size:15px">✔ Within WHO reference limits</b>
-           <span style="color:#333"> — all measured parameters meet the WHO lower reference limits.</span>
-         </div>`;
-
     /* الترويسة اللي بتتكرر في كل صفحة */
     const headImg = (brand && brand.header) ? `<img src="${brand.header}" class="rp-headimg">` : '';
     const pageHead = pg => `

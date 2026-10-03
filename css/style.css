@@ -117,7 +117,7 @@ tr.clickable:hover{background:#f0f7ff}
 .report .rp-logo{max-height:58px;max-width:150px;object-fit:contain}
 .report .rp-title{flex:1;text-align:center}
 .report .rp-title h1{margin:0 0 6px}
-.report .rp-case{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:12.5px;color:#333;border:1px solid #999;border-radius:6px;padding:4px 10px}
+.report .rp-case{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:16px;color:#333;border:1px solid #999;border-radius:6px;padding:10px 14px}
 .report .rp-pg{font-size:11px;color:#888;white-space:nowrap;align-self:flex-start}
 /* صورة رأس التقرير (ليتر هيد) */
 .report .rp-headimg{width:100%;max-height:150px;object-fit:contain;display:block;margin-bottom:6px}

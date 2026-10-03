@@ -1,5 +1,5 @@
 /* ===== E-CASA Web — Service Worker (تحديث أولًا + أوفلاين) ===== */
-const CACHE = 'mt-casa-v20';
+const CACHE = 'mt-casa-v21';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'icon.svg',
   'logo.png', 'favicon-48.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
