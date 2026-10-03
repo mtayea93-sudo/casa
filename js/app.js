@@ -531,6 +531,14 @@ async function pageBackup() {
       </div>
       <p class="hint" style="margin-top:6px">Protection key: if a device shows old data, rotate the key — every device will wipe its local copy and re-download from the cloud. The cloud always wins.</p>
       <br>
+      <h3 style="margin-bottom:6px">Recovery key (on this device)</h3>
+      <p class="hint">Saves a full copy of cases, studies and media inside this device. If data ever gets wiped, restore it from here — no internet needed.</p>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost" id="saveKey">🔐 Save recovery key</button>
+        <button class="btn ghost" id="restoreKey" style="display:none">♻️ Restore from recovery key</button>
+      </div>
+      <p id="keyInfo" class="hint" style="margin-top:6px"></p>
+      <br>
       <p class="hint">Keep the file somewhere safe — it contains patient data and media (it can be large). Importing a backup replaces all current data.</p>
     </div>`;
 
@@ -547,6 +555,60 @@ async function pageBackup() {
       catch (e) { alert('Could not rotate key:\n' + (e && e.message ? e.message : e)); }
     };
   }
+
+  /* ---------- مفتاح الاسترداد: نسخة كاملة جواه الجهاز ---------- */
+  const REC_KEY = 'casa_recovery_v1';
+  const savedKey = (() => { try { return JSON.parse(localStorage.getItem(REC_KEY) || 'null'); } catch (e) { return null; } })();
+  const keyInfo = $('#keyInfo');
+  if (savedKey && Array.isArray(savedKey.patients)) {
+    $('#restoreKey').style.display = '';
+    keyInfo.textContent = `Saved on this device: ${savedKey.patients.length} case(s), ${(savedKey.studies || []).length} study/studies — ${savedKey.savedAt || ''}`;
+  }
+
+  $('#saveKey').onclick = async () => {
+    if (!confirm('Save a recovery key on THIS device?\n\nIt stores a full copy of cases, studies and media in the browser. If the browser data is cleared, the key is lost too — keep a JSON backup as well.')) return;
+    try {
+      const [allP, allS, allM] = await Promise.all([DB.all('patients'), DB.all('studies'), DB.all('media')]);
+      const mediaOut = await Promise.all(allM.map(async m => {
+        const dataUrl = await new Promise(res => {
+          const r = new FileReader();
+          r.onload = () => res(r.result);
+          r.readAsDataURL(m.blob);
+        });
+        const { blob, ...rest } = m;
+        return { ...rest, dataUrl };
+      }));
+      const snap = { app: 'ecasa-web', version: 2, savedAt: new Date().toLocaleString(), patients: visible(allP), studies: visible(allS), media: mediaOut };
+      localStorage.setItem(REC_KEY, JSON.stringify(snap));
+      toast('Recovery key saved on this device');
+      pageBackup();
+    } catch (e) {
+      alert('Could not save recovery key:\n' + (e && e.message ? e.message : e) + '\n\nMedia is probably too large for device storage — use "Download JSON backup" instead.');
+    }
+  };
+
+  $('#restoreKey').onclick = async () => {
+    const snap = (() => { try { return JSON.parse(localStorage.getItem(REC_KEY) || 'null'); } catch (e) { return null; } })();
+    if (!snap || !Array.isArray(snap.patients)) { alert('No recovery key found on this device.'); return; }
+    if (!confirm(`Restore ${snap.patients.length} case(s) and ${(snap.studies || []).length} study/studies from the recovery key?\n\nCurrent data on this device will be replaced!`)) return;
+    try {
+      await DB.clear('patients');
+      await DB.clear('studies');
+      await DB.clear('media');
+      for (const p of snap.patients) await DB.put('patients', p);
+      for (const s of (snap.studies || [])) await DB.put('studies', s);
+      for (const m of (snap.media || [])) {
+        const { dataUrl, ...rest } = m;
+        const blob = dataUrl ? await (await fetch(dataUrl)).blob() : new Blob();
+        await DB.put('media', { ...rest, blob });
+      }
+      if (typeof SYNC !== 'undefined') { SYNC.push('patients'); SYNC.push('studies'); }
+      toast('Restored from recovery key');
+      route();
+    } catch (err) {
+      alert('Restore failed: ' + err.message);
+    }
+  };
 
   $('#export').onclick = async () => {
     const mediaOut = await Promise.all(media.map(async m => {
