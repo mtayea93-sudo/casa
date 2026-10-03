@@ -10,7 +10,8 @@ const Report = (() => {
   const DEFECTS = {
     head: [['bigHead','Big Head'],['smallHead','Small head'],['tapered','Tapered head'],
            ['pyriform','Pyriform head'],['round','Round head'],['amorphous','Amorphus head'],
-           ['vacuolated','Vacuolated head'],['smallAcrosome','Small akrosome'],['doubleHead','Double head']],
+           ['vacuolated','Vacuolated head'],['smallAcrosome','Small akrosome'],['doubleHead','Double head'],
+           ['microspermia','Microspermia']],
     neck: [['thinNeck','Thin neck'],['bentNeck','Bent neck'],['thickNeck','Thick / irregular'],
            ['asymmetric','Asymmetric connected']],
     tail: [['bentTail','Bent tail'],['multiTail','Multi tail'],['tailBreakdown','Tail breakdown'],
@@ -76,7 +77,9 @@ const Report = (() => {
          </div>`;
 
     /* الترويسة اللي بتتكرر في كل صفحة */
+    const headImg = (brand && brand.header) ? `<img src="${brand.header}" class="rp-headimg">` : '';
     const pageHead = pg => `
+      ${headImg}
       <div class="rp-head">
         ${brand && brand.logo ? `<img src="${brand.logo}" class="rp-logo">` : ''}
         <div class="rp-title">
@@ -226,11 +229,16 @@ const Report = (() => {
       </div>
     </div>` : '';
 
+    const wm = (brand && brand.logo) ? `<div class="rp-wm"><img src="${brand.logo}"></div>` : '';
+    const footImg = (brand && brand.footer) ? `<img src="${brand.footer}" class="rp-footimg">` : '';
     const pages = [page1, page2, page3, page4].filter(Boolean);
     const total = pages.length;
     return `
     <div class="report">
-      ${pages.map((pgh, i) => pgh.replace(/\d+ \/ 4/, (i + 1) + ' / ' + total)).join('')}
+      ${pages.map((pgh, i) => pgh
+        .replace(/\d+ \/ 4/, (i + 1) + ' / ' + total)
+        .replace('<div class="rpage">', '<div class="rpage">' + wm)).join('')}
+      ${footImg}
     </div>`;
   }
 

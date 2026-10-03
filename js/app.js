@@ -60,7 +60,7 @@ async function getLabs() {
 async function brandFor(rec) {
   const labs = await getLabs();
   const hit = labs.find(x => x.id === (rec.labId || 'main'));
-  if (hit) return { name: hit.name, logo: hit.logo || '' };
+  if (hit) return { name: hit.name, logo: hit.logo || '', header: hit.header || '', footer: hit.footer || '' };
   try {
     const r = await DB.get('meta', 'settings');
     if (r && r.value) return { name: r.value.siteName || 'MT CASA', logo: r.value.logo || '' };
@@ -266,6 +266,7 @@ const MORPH = [
   ['bigHead','Big Head'],['smallHead','Small head'],['tapered','Tapered head'],
   ['pyriform','Pyriform head'],['round','Round head'],['amorphous','Amorphus head'],
   ['vacuolated','Vacuolated head'],['smallAcrosome','Small akrosome'],['doubleHead','Double head'],
+  ['microspermia','Microspermia'],
   ['thinNeck','Thin neck'],['bentNeck','Bent neck'],['thickNeck','Thick / irregular neck'],
   ['asymmetric','Asymmetric connected'],
   ['bentTail','Bent tail'],['multiTail','Multi tail'],['tailBreakdown','Tail breakdown'],

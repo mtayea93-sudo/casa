@@ -250,28 +250,68 @@ const Admin = (() => {
               <input id="adm-lab-logo" type="file" accept="image/*" hidden>
             </label>
             ${lab.logo ? ' <button class="btn small ghost" id="adm-lab-logo-del">إزالة اللوجو</button>' : ''}
-            <p class="hint" style="margin-top:6px">الصورة بتتصغر تلقائيًا وبتظهر في أعلى التقرير المطبوع بتاع معملك بس.</p>
+            <p class="hint" style="margin-top:6px">بيبان في الترويسة وكمان كعلامة مائية خفيفة في خلفية كل صفحة من التقرير المطبوع.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>صورة رأس التقرير (اختياري)</h3>
+        <div class="row" style="align-items:center;gap:12px">
+          <div id="adm-lab-head-prev" style="width:120px;height:44px;border:1px dashed #ccc;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            ${lab.header ? `<img src="${lab.header}" style="width:100%;height:100%;object-fit:contain">` : '<span style="font-size:11px;color:#aaa">لا يوجد</span>'}
+          </div>
+          <div style="flex:1">
+            <label class="btn small ghost" style="cursor:pointer">رفع صورة الرأس
+              <input id="adm-lab-head" type="file" accept="image/*" hidden>
+            </label>
+            ${lab.header ? ' <button class="btn small ghost" id="adm-lab-head-del">إزالة</button>' : ''}
+            <p class="hint" style="margin-top:6px">تظهر عرض الصفحة كاملة فوق كل صفحة من التقرير (مناسبة لليتر هيد بتاع المعمل).</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>صورة ديل التقرير (اختياري)</h3>
+        <div class="row" style="align-items:center;gap:12px">
+          <div id="adm-lab-foot-prev" style="width:120px;height:44px;border:1px dashed #ccc;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            ${lab.footer ? `<img src="${lab.footer}" style="width:100%;height:100%;object-fit:contain">` : '<span style="font-size:11px;color:#aaa">لا يوجد</span>'}
+          </div>
+          <div style="flex:1">
+            <label class="btn small ghost" style="cursor:pointer">رفع صورة الديل
+              <input id="adm-lab-foot" type="file" accept="image/*" hidden>
+            </label>
+            ${lab.footer ? ' <button class="btn small ghost" id="adm-lab-foot-del">إزالة</button>' : ''}
+            <p class="hint" style="margin-top:6px">تظهر ثابتة تحت كل صفحة من صفحات التقرير المطبوع.</p>
           </div>
         </div>
       </div>
       <br><button class="btn" id="adm-lab-save">💾 حفظ</button>`;
 
-    $id('adm-lab-logo').onchange = e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        const s = Math.min(1, 220 / Math.max(img.width, img.height));
-        c.width = img.width * s; c.height = img.height * s;
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        lab.logo = c.toDataURL('image/png');
-        $id('adm-lab-logo-prev').innerHTML = `<img src="${lab.logo}" style="width:100%;height:100%;object-fit:cover">`;
+    /* رفع صورة لأي خانة: logo (220px) / header / footer (عرض 1000px) */
+    const bindUpload = (inputId, field, prevId, maxDim, cover) => {
+      const inp = $id(inputId);
+      if (!inp) return;
+      inp.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          const isW = img.width >= img.height;
+          const scale = isW ? Math.min(1, maxDim / img.width) : Math.min(1, maxDim / img.height);
+          c.width = img.width * scale; c.height = img.height * scale;
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          lab[field] = c.toDataURL('image/png');
+          const fit = cover ? 'cover' : 'contain';
+          $id(prevId).innerHTML = `<img src="${lab[field]}" style="width:100%;height:100%;object-fit:${fit}">`;
+        };
+        img.src = URL.createObjectURL(file);
       };
-      img.src = URL.createObjectURL(file);
+      const delB = $id(inputId + '-del');
+      if (delB) delB.onclick = () => { lab[field] = ''; renderMyLabSettings(); };
     };
-    const del = $id('adm-lab-logo-del');
-    if (del) del.onclick = () => { lab.logo = ''; renderMyLabSettings(); };
+    bindUpload('adm-lab-logo', 'logo', 'adm-lab-logo-prev', 220, true);
+    bindUpload('adm-lab-head', 'header', 'adm-lab-head-prev', 1000, false);
+    bindUpload('adm-lab-foot', 'footer', 'adm-lab-foot-prev', 1000, false);
     $id('adm-lab-save').onclick = async () => {
       lab.name = $id('adm-lab-name').value.trim();
       const i = labs.findIndex(x => x.id === id);
