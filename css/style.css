@@ -85,6 +85,8 @@ tr.clickable:hover{background:#f0f7ff}
   body{background:#fff}
   .topbar,#app,.toast,#mtayea-signature,#admin-footer{display:none !important}
   .print-area{display:block}
+  /* كروم أندرويد بيتجاهل خلفيات الطباعة إلا بهذه الخاصية — أعمدة الحركة والألوان */
+  .print-area, .print-area *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .report .rpage{page-break-after:always;break-after:page;margin-bottom:0}
   .report .rpage:last-child{page-break-after:auto;break-after:auto}
   @page{size:A4;margin:14mm}
