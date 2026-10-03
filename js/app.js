@@ -29,7 +29,8 @@ function netStatus() {
   const el = $('#net-status');
   if (!el) return;
   if (typeof SYNC !== 'undefined' && SYNC.ready && SYNC.connected) {
-    el.textContent = 'Cloud connected ☁️ — data syncs across all your devices';
+    const t = SYNC.lastSync ? new Date(SYNC.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    el.textContent = 'Cloud connected ☁️ — synced ' + t + ' — data syncs across all your devices';
     el.className = 'net on';
     return;
   }
@@ -39,7 +40,7 @@ function netStatus() {
     return;
   }
   const on = navigator.onLine;
-  el.textContent = on ? 'Online' : 'Offline — work is saved locally';
+  el.textContent = on ? 'Connecting to cloud…' : 'Offline — work is saved locally';
   el.className = 'net ' + (on ? 'on' : 'off');
 }
 
@@ -359,31 +360,35 @@ async function pageStudy(pid, sid) {
       currentSid = sid;
       return DB.byIndex('media', 'studyId', sid);
     },
-    apply: vals => {
+    apply: async vals => {
       const map = { pr: 'pr', np: 'np', im: 'immotile', vcl: 'vcl', vsl: 'vsl',
                     vap: 'vap', lin: 'lin', wob: 'wob', str: 'str' };
       for (const [vk, fk] of Object.entries(map)) {
         const el = $('#f-' + fk);
         if (el) { el.value = vals[vk]; el.dispatchEvent(new Event('input')); }
       }
-      toast('Analysis results filled into the study');
+      /* حفظ فوري — النتيجة بتتسجل في الدراسة وتتزامن من غير ما المستخدم يدوس Save */
+      try { await save(); toast('✅ Results saved into the study and synced'); }
+      catch (e) { toast('Filled — press Save to store'); }
     },
   });
   if (typeof Morpho !== 'undefined') Morpho.configure({
     getStudyId: async () => currentSid || await save(),
-    apply: vals => {
+    apply: async vals => {
       const el = $('#f-normalMorph');
       if (el) { el.value = vals.normalMorph; el.dispatchEvent(new Event('input')); }
-      toast('Normal morphology % filled into the study');
+      try { await save(); toast('✅ Morphology saved and synced'); }
+      catch (e) { toast('Filled — press Save to store'); }
     },
   });
   if (typeof Annotate !== 'undefined') Annotate.configure({
     getStudyId: async () => currentSid || await save(),
-    apply: vals => {
+    apply: async vals => {
       const el = $('#f-normalMorph'), w = $('#f-wbc');
       if (el && vals.normalMorph != null) { el.value = vals.normalMorph; el.dispatchEvent(new Event('input')); }
       if (w && vals.wbc != null) { w.value = vals.wbc; w.dispatchEvent(new Event('input')); }
-      toast('Manual marking results filled into the study');
+      try { await save(); toast('✅ Marking results saved and synced'); }
+      catch (e) { toast('Filled — press Save to store'); }
     },
   });
 

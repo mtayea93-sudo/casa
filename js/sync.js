@@ -15,10 +15,13 @@ const SYNC = (() => {
     messagingSenderId: "872797782501",
     appId: "1:872797782501:web:f86c79b103f1014511af0c"
   };
-  const ROOT = 'ecasa'; /* مسار المشروع المخصوص casa-mtayea */
+  /* كل معمل بيسync على مساره الخاص — عزل كامل للبيانات */
+  const myLabId = () => (typeof Login !== 'undefined' && Login.lab) ? Login.lab() : '*';
+  const rootFor = lab => (lab && lab !== '*') ? 'ecasa/labs/' + lab : 'ecasa';
+  const ROOT = rootFor(myLabId());
   const KEYS = ['patients', 'studies', 'meta'];
   let db = null;
-  const state = { ready: false, connected: false, failed: false, lastSync: 0, applying: false };
+  const state = { ready: false, connected: false, failed: false, authed: false, lastSync: 0, applying: false };
 
   const mtGet = k => parseInt(localStorage.getItem('casa_mt_' + k) || '0', 10);
   const mtSet = (k, t) => localStorage.setItem('casa_mt_' + k, String(t));
@@ -34,6 +37,7 @@ const SYNC = (() => {
       await db.ref(ROOT + '/' + k).set({ t: Date.now(), d });
       mtSet(k, Date.now());
       state.lastSync = Date.now();
+      if (typeof netStatus === 'function') netStatus();
     } catch (e) { /* الشبكة وقعت — البيانات محلية وآمنة */ }
   }
 
@@ -166,8 +170,10 @@ const SYNC = (() => {
     try {
       db = firebase.database();
       state.ready = true;
+      state.authed = true;
       db.ref('.info/connected').on('value', s => {
         state.connected = !!s.val();
+        if (s.val()) KEYS.forEach(push); /* أول ما النت يرجع: ارفع أي حاجة فاتت */
         if (typeof netStatus === 'function') netStatus();
       });
       /* فحص المفتاح قبل ما نسمع أي حاجة — عشان قديم محلي مايطلعش للسحابة */
@@ -176,6 +182,8 @@ const SYNC = (() => {
         KEYS.forEach(listen);
         wrapDb();
         if (wiped) state.lastSync = Date.now();
+        /* شبكة أمان: كل 45 ثانية لو متصل ارفع نسخة — أي داتا "مش مسموعة" بتتصلح لوحدها */
+        setInterval(() => { if (state.connected && !state.applying) KEYS.forEach(push); }, 45000);
       });
     } catch (e) { state.failed = true; }
   }
@@ -186,16 +194,55 @@ const SYNC = (() => {
       if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
       /* دخول مجهول تلقائي: القواعد الجديدة بتشترط auth != null.
          على الموبايل الطلب ممكن يفشل مؤقتًا مع نت ضعيف — بنعيد المحاولة 5 مرات */
+      /* بنحاول الدخول المجهول للأبد — كل 30 ثانية — لحد ما النت يسمح.
+         من غير auth القواعد بترفض كل حاجة، فالاستسلام مش اختيار */
       let tries = 0;
       const tryAuth = () => {
         firebase.auth().signInAnonymously().then(startDb).catch(() => {
           tries++;
-          if (tries < 5) setTimeout(tryAuth, 3000);
-          else startDb(); /* اشتغل من غير auth على أي حال — القراءة/الكتابة هتفشل بس الموقع ميعلقش */
+          setTimeout(tryAuth, tries < 5 ? 3000 : 30000);
         });
       };
       tryAuth();
     } catch (e) { state.failed = true; }
+  }
+
+  /* دخول مجهول مضمون (بإعادات) — بنستخدمه في شاشة الدخول قبل ما التطبيق يفتح */
+  function ensureAuth() {
+    return new Promise((resolve, reject) => {
+      if (typeof firebase === 'undefined') return reject(new Error('Firebase SDK not loaded'));
+      try { if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG); } catch (e) {}
+      if (firebase.auth().currentUser) return resolve(true);
+      let tries = 0;
+      const attempt = () => firebase.auth().signInAnonymously()
+        .then(() => resolve(true))
+        .catch(e => { if (++tries >= 8) reject(e); else setTimeout(attempt, 1500); });
+      attempt();
+    });
+  }
+
+  /* قراءة لقطة من meta بمسار معمل معين (مستخدمة في شاشة الدخول) */
+  async function fetchMeta(lab, key) {
+    await ensureAuth();
+    const snap = await firebase.database().ref(rootFor(lab) + '/meta').get();
+    const v = snap.val();
+    if (v && typeof v === 'object' && 'd' in v && Array.isArray(v.d)) {
+      const rec = v.d.find(r => r && r.key === key);
+      return rec ? rec.value : null;
+    }
+    if (Array.isArray(v)) { const rec = v.find(r => r && r.key === key); return rec ? rec.value : null; }
+    return null;
+  }
+
+  /* دليل المعامل العام — بيعيش في المسار الرئيسي ومتاح لأي حد متسجل */
+  async function fetchLabs() {
+    await ensureAuth();
+    const arr = await fetchMeta('*', 'labs');
+    return Array.isArray(arr) ? arr : [];
+  }
+  async function fetchAccounts(lab) {
+    const arr = await fetchMeta(lab, 'accounts');
+    return Array.isArray(arr) ? arr : null;
   }
 
   /* استعادة يدوية: تمسح المحلي ويسحب السحابة (من صفحة النسخ الاحتياطي) */
@@ -210,7 +257,8 @@ const SYNC = (() => {
     get ready() { return state.ready; },
     get connected() { return state.connected; },
     get failed() { return state.failed; },
+    get authed() { return state.authed; },
     get lastSync() { return state.lastSync; },
-    init, push, restoreFromCloud, rotateGuard,
+    init, push, restoreFromCloud, rotateGuard, ensureAuth, fetchLabs, fetchAccounts,
   };
 })();

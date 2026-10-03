@@ -139,32 +139,37 @@ const Admin = (() => {
       <div class="card" style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="text-align:left;color:#666">
-            <th style="padding:6px">Lab</th><th>Name</th><th>Users</th><th>Cases</th><th></th>
+            <th style="padding:6px">Lab</th><th>Name</th><th>Login prefix</th><th>Activation code</th><th>Users</th><th>Cases</th><th></th>
           </tr></thead>
           <tbody>${labs.map((L, i) => `
             <tr style="border-top:1px solid #eee">
               <td style="padding:6px">${L.logo ? `<img src="${L.logo}" style="width:34px;height:34px;object-fit:cover;border-radius:8px">` : '—'}</td>
               <td style="font-weight:700">${esc(L.name)}</td>
+              <td><code style="background:#eef2f7;padding:2px 7px;border-radius:6px;font-weight:700">${esc(L.slug || '—')}/</code></td>
+              <td><code style="background:#fff8e6;padding:2px 7px;border-radius:6px;font-weight:700;letter-spacing:1px">${esc(L.code || '—')}</code></td>
               <td>${acc.filter(a => a.lab === L.id).map(a => esc(a.u)).join(', ') || '<span class="gray">no user</span>'}</td>
               <td>${countFor(L.id)}</td>
               <td style="white-space:nowrap;text-align:right">
+                <button class="btn small ghost" data-lcode="${i}">🔑 Code</button>
                 <button class="btn small ghost" data-lrename="${i}">Rename</button>
-                <button class="btn small ghost" data-llogo="${i}">Change logo</button>
+                <button class="btn small ghost" data-llogo="${i}">Logo</button>
                 <button class="btn small" style="background:#b91c1c" data-ldel="${i}">Delete</button>
               </td>
-            </tr>`).join('') || '<tr><td colspan="5" style="padding:16px;text-align:center;color:#999">No labs yet</td></tr>'}</tbody>
+            </tr>`).join('') || '<tr><td colspan="7" style="padding:16px;text-align:center;color:#999">No labs yet</td></tr>'}</tbody>
         </table>
       </div>
       <div class="card">
         <h4 style="margin:0 0 10px">＋ Add lab</h4>
         <div class="row">
-          <input id="adm-lname" placeholder="Lab name (shown on the report)" style="flex:1;padding:9px;border:1px solid #ddd;border-radius:8px">
+          <input id="adm-lname" placeholder="Lab name (shown on the report)" style="flex:2;padding:9px;border:1px solid #ddd;border-radius:8px">
+          <input id="adm-lslug" placeholder="Login prefix (English, short)" style="flex:1;padding:9px;border:1px solid #ddd;border-radius:8px">
           <label class="btn ghost" style="cursor:pointer">Logo
             <input id="adm-llogo-new" type="file" accept="image/*" hidden>
           </label>
           <img id="adm-llogo-prev" style="display:none;width:38px;height:38px;object-fit:cover;border-radius:8px">
           <button class="btn" id="adm-ladd">Add</button>
         </div>
+        <p class="hint" style="margin-top:8px">Users will log in as <b>prefix/username</b> — e.g. <b>sakr/ahmed</b>. An activation code is generated automatically and the device asks for it once on first use.</p>
       </div>`;
 
     let newLogo = '';
@@ -181,14 +186,31 @@ const Admin = (() => {
       };
       img.src = URL.createObjectURL(f);
     };
+    const mkCode = () => {
+      const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
+      let s = '';
+      for (let i = 0; i < 8; i++) s += abc[Math.floor(Math.random() * abc.length)];
+      return s.slice(0, 4) + '-' + s.slice(4);
+    };
     $id('adm-ladd').onclick = async () => {
       const name = $id('adm-lname').value.trim();
       if (!name) { alert('Lab name is required'); return; }
+      let slug = $id('adm-lslug').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!slug) slug = 'lab' + Math.random().toString(36).slice(2, 6);
+      if (labs.some(l => (l.slug || '').toLowerCase() === slug)) { alert('This login prefix is already used — choose another'); return; }
       const id = 'lab' + Date.now();
-      labs.push({ id, name, logo: newLogo });
+      labs.push({ id, name, slug, code: mkCode(), logo: newLogo });
       await saveLabs(labs);
       renderLabs();
     };
+    $id('adm-body').querySelectorAll('[data-lcode]').forEach(b => b.onclick = async () => {
+      const L = labs[+b.dataset.lcode];
+      if (!confirm('Generate a NEW activation code for "' + L.name + '"?\n\nOld devices keep working — new devices will need the new code.')) return;
+      L.code = mkCode();
+      await saveLabs(labs);
+      renderLabs();
+      alert('New code for ' + L.name + ': ' + L.code);
+    });
     $id('adm-body').querySelectorAll('[data-lrename]').forEach(b => b.onclick = async () => {
       const L = labs[+b.dataset.lrename];
       const n = prompt('Lab name:', L.name); if (n === null || !n.trim()) return;
@@ -594,7 +616,7 @@ const Admin = (() => {
     const list = mine === '*' ? acc.map((a, i) => ({ a, i })) : acc.map((a, i) => ({ a, i })).filter(x => (x.a.lab || '*') === mine);
     const labName = id => id === '*' ? '⭐ super admin' : ((labs.find(l => l.id === id) || {}).name || id || 'main');
     $id('adm-body').innerHTML = `
-      <p class="hint" style="margin-bottom:10px">Login accounts for the site. Changes sync to all devices. The last super account cannot be deleted — the site must always keep at least one.</p>
+      <p class="hint" style="margin-bottom:10px">Login accounts for the site. Changes sync to all devices. The last super account cannot be deleted — the site must always keep at least one.<br>Users log in as <b>lab-prefix/username</b> (e.g. <b>${esc((labs.find(l => l.id === mine) || {}).slug || '')}/${esc((list[0] && list[0].a.u) || 'user')}</b>).</p>
       <div class="card" style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="text-align:left;color:#666">
