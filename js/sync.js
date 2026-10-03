@@ -143,7 +143,9 @@ const SYNC = (() => {
   /* تدوير المفتاح من لوحة التحكم — الجهاز ده يبقى هو المرجع:
      بيرفع داتته للسحابة الأول، وبعدها كل الأجهزة التانية هتمسح وتسحب من السحابة */
   async function rotateGuard() {
-    if (!state.ready) throw new Error('not connected');
+    /* استنى الاتصال لحد 15 ثانية — أحياناً Firebase بياخد وقته في أول تشغيل */
+    for (let i = 0; i < 30 && !state.ready; i++) await new Promise(r => setTimeout(r, 500));
+    if (!state.ready) throw new Error('Firebase is still starting — check internet and try again');
     const k = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     /* ارفع الحالات والدراسات الحالية للسحابة الأول — دي تبقى النسخة المرجعية */
     for (const kk of ['patients', 'studies']) {
@@ -182,11 +184,17 @@ const SYNC = (() => {
     if (typeof firebase === 'undefined') { state.failed = true; return; }
     try {
       if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
-      /* دخول مجهول تلقائي: القواعد الجديدة بتشترط auth != null
-         لو ميزة Anonymous لسه مش مفعّلة في الكونسول بنشتغل بدونها مؤقتًا */
-      firebase.auth().signInAnonymously()
-        .then(startDb)
-        .catch(() => startDb());
+      /* دخول مجهول تلقائي: القواعد الجديدة بتشترط auth != null.
+         على الموبايل الطلب ممكن يفشل مؤقتًا مع نت ضعيف — بنعيد المحاولة 5 مرات */
+      let tries = 0;
+      const tryAuth = () => {
+        firebase.auth().signInAnonymously().then(startDb).catch(() => {
+          tries++;
+          if (tries < 5) setTimeout(tryAuth, 3000);
+          else startDb(); /* اشتغل من غير auth على أي حال — القراءة/الكتابة هتفشل بس الموقع ميعلقش */
+        });
+      };
+      tryAuth();
     } catch (e) { state.failed = true; }
   }
 

@@ -544,7 +544,7 @@ async function pageBackup() {
     gbtn.onclick = async () => {
       if (!confirm('Rotate the protection key?\n\nEvery device will delete its LOCAL copy and re-download from the cloud. Use this if a device shows old data.')) return;
       try { await SYNC.rotateGuard(); toast('Protection key rotated — all devices will re-sync'); }
-      catch (e) { alert('Could not rotate key (Firebase not connected)'); }
+      catch (e) { alert('Could not rotate key:\n' + (e && e.message ? e.message : e)); }
     };
   }
 
