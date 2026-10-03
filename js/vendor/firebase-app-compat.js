@@ -5,4 +5,4 @@
     Warning: You are trying to load Firebase while using Firebase Performance standalone script.
     You should load Firebase Performance with this instance of Firebase to avoid loading duplicate code.
     `)}const Fe=Me;me("@firebase/app-compat","0.2.35",void 0);return Fe.registerVersion("firebase","10.12.2","app-compat-cdn"),Fe});
-//# sourceMappingURL=firebase-app-compat.js.map
+

@@ -1,5 +1,5 @@
 /* ===== E-CASA Web — Service Worker (تحديث أولًا + أوفلاين) ===== */
-const CACHE = 'mt-casa-v19';
+const CACHE = 'mt-casa-v20';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'icon.svg',
   'logo.png', 'favicon-48.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
@@ -37,4 +37,15 @@ self.addEventListener('fetch', e => {
       return res;
     }).catch(() => caches.match(e.request).then(r => r || caches.match('./')))
   );
+});
+
+/* Firebase Auth بيبعت رسائل للـ SW وبيستنى رد ack — من غير الرد ده
+   تسجيل الدخول المجهول بيفشل بـ "unsupported_event" والمزامنة بتقف.
+   بنرد ack + done فورًا عشان الـ auth يكمل شغله. */
+self.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d || !d.eventId || !e.ports || !e.ports[0]) return;
+  const port = e.ports[0];
+  port.postMessage({ status: 'ack', eventId: d.eventId, eventType: d.eventType });
+  port.postMessage({ status: 'done', eventId: d.eventId, eventType: d.eventType, response: [] });
 });
