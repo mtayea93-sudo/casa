@@ -87,6 +87,19 @@ tr.clickable:hover{background:#f0f7ff}
   .print-area{display:block}
   /* كروم أندرويد بيتجاهل خلفيات الطباعة إلا بهذه الخاصية — أعمدة الحركة والألوان */
   .print-area, .print-area *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* ضغط مقاسات الصفحة الأولى عشان كل حاجة تتسع في صفحة A4 واحدة */
+  .report{font-size:13px}
+  .report h1{font-size:19px;margin-bottom:6px}
+  .report .rp-head{padding-bottom:6px;margin-bottom:6px}
+  .report .rp-case{font-size:11.5px;padding:2px 8px}
+  .report .who{margin:6px 0}
+  .report h4.sec{margin:8px 0 4px;font-size:14px}
+  .report table{width:100%;border-collapse:collapse}
+  .report th,.report td{padding:3px 6px}
+  .report .phys{padding:7px 12px}
+  .report .phys div{padding:1px 0}
+  .report .report-bars{height:130px;padding:8px}
+  .report .rbar i{margin:0 auto}
   .report .rpage{page-break-after:always;break-after:page;margin-bottom:0}
   .report .rpage:last-child{page-break-after:auto;break-after:auto}
   @page{size:A4;margin:14mm}

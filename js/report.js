@@ -156,8 +156,9 @@ const Report = (() => {
         ${resultRow(null, s.spermatogenicCells, 'Spermatogenic cells', '/ H.P.F')}
       </table>
 
+      ${s.comment && String(s.comment).trim() ? `
       <h4 class="sec">Comment</h4>
-      <p style="border:1px solid #333;border-radius:8px;padding:10px;min-height:70px;margin-bottom:0">${esc(s.comment || '')}</p>
+      <p style="border:1px solid #333;border-radius:8px;padding:10px;min-height:50px;margin-bottom:0">${esc(s.comment)}</p>` : ''}
     </div>`;
 
     /* ---------- الصفحة 2: الديناميك ---------- */
