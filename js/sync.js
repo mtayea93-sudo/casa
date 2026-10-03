@@ -49,7 +49,18 @@ const SYNC = (() => {
       }
       await DB.clear(k);
       for (const rec of clean) await DB.put(k, rec);
-      if (k === 'meta' && typeof Admin !== 'undefined' && Admin.onMetaSynced) Admin.onMetaSynced();
+      /* لو المفتاح اتدوّر والجهاز شغال: امسح واسحب من السحابة على طول */
+      if (k === 'meta') {
+        const rec = clean.find(r => r && r.key === GUARD_KEY);
+        if (rec && guardLocal() && String(rec.value) !== guardLocal()) {
+          localStorage.setItem('casa_guard', String(rec.value));
+          for (const kk of ['patients', 'studies']) { mtSet(kk, 0); }
+          if (typeof route === 'function') route();
+        } else if (rec && !guardLocal()) {
+          localStorage.setItem('casa_guard', String(rec.value));
+        }
+        if (typeof Admin !== 'undefined' && Admin.onMetaSynced) Admin.onMetaSynced();
+      }
     } finally { state.applying = false; }
   }
 
@@ -94,6 +105,51 @@ const SYNC = (() => {
     DB.del = async (n, id) => { const r = await _del(n, id); if (KEYS.includes(n)) push(n); return r; };
   }
 
+  /* مفتاح الحماية: قيمة في سحابة meta تحت key = 'guardKey'.
+     أي جهاز مفتاحه المحلي مختلف عن السحابة = داتته مُشتبه فيها (قديمة):
+     بيمسح المرضى والدراسات المحلية ويسحب من السحابة — مستحيل يرفع قديم فوق جديد.
+     تدوير المفتاح من لوحة التحكم بيجبر كل الأجهزة على إعادة المزامنة. */
+  const GUARD_KEY = 'guardKey';
+  const guardLocal = () => localStorage.getItem('casa_guard') || '';
+
+  async function guardFromCloud() {
+    const snap = await db.ref(ROOT + '/meta').get();
+    const v = snap.val();
+    if (v && typeof v === 'object' && 'd' in v && Array.isArray(v.d)) {
+      const rec = v.d.find(r => r && r.key === GUARD_KEY);
+      return rec ? String(rec.value) : '';
+    }
+    return '';
+  }
+
+  /* بيرجع true لو حصل مسح ومحتاجين راوت/ريلود */
+  async function checkGuard() {
+    try {
+      const cloud = await guardFromCloud();
+      const local = guardLocal();
+      if (cloud && cloud !== local) {
+        for (const k of ['patients', 'studies']) {
+          try { await DB.clear(k); } catch (e) {}
+          mtSet(k, 0); /* السحابة تكسب بعد المسح */
+        }
+        localStorage.setItem('casa_guard', cloud);
+        return true;
+      }
+      if (cloud && !local) localStorage.setItem('casa_guard', cloud);
+    } catch (e) {}
+    return false;
+  }
+
+  /* تدوير المفتاح من لوحة التحكم — كل الأجهزة التانية هتمسح وتسحب من السحابة */
+  async function rotateGuard() {
+    if (!state.ready) throw new Error('not connected');
+    const k = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    await DB.put('meta', { key: GUARD_KEY, value: k });
+    localStorage.setItem('casa_guard', k);
+    await push('meta');
+    return k;
+  }
+
   function startDb() {
     if (state.ready) return;
     try {
@@ -103,8 +159,13 @@ const SYNC = (() => {
         state.connected = !!s.val();
         if (typeof netStatus === 'function') netStatus();
       });
-      KEYS.forEach(listen);
-      wrapDb();
+      /* فحص المفتاح قبل ما نسمع أي حاجة — عشان قديم محلي مايطلعش للسحابة */
+      checkGuard().then(wiped => {
+        if (wiped && typeof route === 'function') route();
+        KEYS.forEach(listen);
+        wrapDb();
+        if (wiped) state.lastSync = Date.now();
+      });
     } catch (e) { state.failed = true; }
   }
 
@@ -133,6 +194,6 @@ const SYNC = (() => {
     get connected() { return state.connected; },
     get failed() { return state.failed; },
     get lastSync() { return state.lastSync; },
-    init, push, restoreFromCloud,
+    init, push, restoreFromCloud, rotateGuard,
   };
 })();

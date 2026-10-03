@@ -526,6 +526,10 @@ async function pageBackup() {
         <button class="btn ghost" id="cloudRestore" style="display:none">☁️ Restore from cloud</button>
       </div>
       <p id="cloudInfo" class="hint" style="margin-top:8px"></p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost" id="rotateGuard" style="display:none">🔑 Rotate protection key</button>
+      </div>
+      <p class="hint" style="margin-top:6px">Protection key: if a device shows old data, rotate the key — every device will wipe its local copy and re-download from the cloud. The cloud always wins.</p>
       <br>
       <p class="hint">Keep the file somewhere safe — it contains patient data and media (it can be large). Importing a backup replaces all current data.</p>
     </div>`;
@@ -535,6 +539,13 @@ async function pageBackup() {
     btn.style.display = '';
     btn.onclick = () => SYNC.restoreFromCloud();
     info.textContent = 'Cases and studies sync automatically with Firebase. Media (images/videos) stay on the device and travel through the JSON backup.';
+    const gbtn = $('#rotateGuard');
+    gbtn.style.display = '';
+    gbtn.onclick = async () => {
+      if (!confirm('Rotate the protection key?\n\nEvery device will delete its LOCAL copy and re-download from the cloud. Use this if a device shows old data.')) return;
+      try { await SYNC.rotateGuard(); toast('Protection key rotated — all devices will re-sync'); }
+      catch (e) { alert('Could not rotate key (Firebase not connected)'); }
+    };
   }
 
   $('#export').onclick = async () => {
