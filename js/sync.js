@@ -140,10 +140,19 @@ const SYNC = (() => {
     return false;
   }
 
-  /* تدوير المفتاح من لوحة التحكم — كل الأجهزة التانية هتمسح وتسحب من السحابة */
+  /* تدوير المفتاح من لوحة التحكم — الجهاز ده يبقى هو المرجع:
+     بيرفع داتته للسحابة الأول، وبعدها كل الأجهزة التانية هتمسح وتسحب من السحابة */
   async function rotateGuard() {
     if (!state.ready) throw new Error('not connected');
     const k = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    /* ارفع الحالات والدراسات الحالية للسحابة الأول — دي تبقى النسخة المرجعية */
+    for (const kk of ['patients', 'studies']) {
+      const d = await DB.all(kk);
+      if (Array.isArray(d) && d.length) {
+        const clean = kk === 'studies' ? d.filter(r => r && r.patientId !== undefined && r.patientId !== null) : d;
+        if (clean.length) { await db.ref(ROOT + '/' + kk).set({ t: Date.now(), d: clean }); mtSet(kk, Date.now()); }
+      }
+    }
     await DB.put('meta', { key: GUARD_KEY, value: k });
     localStorage.setItem('casa_guard', k);
     await push('meta');
