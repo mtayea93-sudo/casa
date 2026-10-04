@@ -4,6 +4,10 @@
 const Cam = (() => {
   let stream = null, recorder = null, chunks = [], recording = false;
   let urls = [];
+  /* وقت تسجيل الفيديو الموحد — الحيوانات المنوية بيتعمل ليها تحليل أول 5-10 ثواني على أي حال */
+  const REC_SECONDS = 5;
+  let recTimer = null, recStarted = 0;
+  const clearRecTimer = () => { if (recTimer) { clearInterval(recTimer); recTimer = null; } };
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g,
@@ -175,8 +179,21 @@ const Cam = (() => {
         };
         recorder.start(1000);
         recording = true;
-        $('#cam-rec').textContent = 'Stop recording & save';
+        recStarted = Date.now();
+        $('#cam-rec').textContent = `Recording… ${REC_SECONDS}s left`;
+        /* وقف تلقائي بعد الوقت الموحد — كل الفيديوهات بنفس الطول */
+        clearRecTimer();
+        recTimer = setInterval(() => {
+          const left = Math.ceil(REC_SECONDS - (Date.now() - recStarted) / 1000);
+          const b = $('#cam-rec');
+          if (left <= 0) {
+            clearRecTimer(); recTimer = null;
+            if (recording && recorder) { try { recorder.stop(); } catch (e) {} recording = false; }
+            if (b) b.textContent = 'Start video recording (Motility)';
+          } else if (b) b.textContent = `Recording… ${left}s left — stop & save`;
+        }, 250);
       } else {
+        clearRecTimer();
         recorder.stop();
         recording = false;
         $('#cam-rec').textContent = 'Start video recording (Motility)';
