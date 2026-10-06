@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "ecasa": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    ".read": false,
+    ".write": false
+  }
+}

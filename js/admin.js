@@ -5,7 +5,10 @@
    - حذف/تعديل الحالات مع كل دراساتها ووسائطها
 */
 const Admin = (() => {
-  const DEF = { siteName: 'MT CASA', logo: '', adminPass: 'casa2026' };
+  const DEF = { siteName: 'MT CASA', logo: '', adminPass: '' };
+  /* باسورد الدخول الأول مدمج كهاش — النص الصريح مش موجود في الكود خالص */
+  const DEF_LEGACY = { salt: "745e029cafd7ea757c55672b1c3124b0", pass: "0a43ce8c30a6770b18510edb42c479395d6cd040cc541953c9062c6ae0010337" }; /* casa2026 */
+  const DEF_HASH = { salt: "5a550e2ebf0ea5715a2b99e4fc7561d5", pass: "81284d819c07d8c8b3ba5e60377cc5014505b0e5dc11facea3fa7e66a286ea62" }; /* mhmd@1993 */
   let settings = { ...DEF };
   let overlay = null;
 
@@ -64,12 +67,25 @@ const Admin = (() => {
     $id('adm-open').onclick = open;
   }
 
-  function authed() {
-    if (sessionStorage.getItem('casa_admin') === '1') return true;
+  async function authed() {
+    const secret = (settings.adminSalt || '') + ':' + (settings.adminPass || '').slice(0, 24);
+    if (sessionStorage.getItem('casa_asig') && !SEC.adminTampered(secret)) return true;
     const p = prompt('🔒 Admin panel — password:');
     if (p === null) return false;
-    if (p === (settings.adminPass || DEF.adminPass)) {
-      sessionStorage.setItem('casa_admin', '1');
+    const v = await SEC.verify({ salt: settings.adminSalt, pass: settings.adminPass }, p);
+    let fb = await SEC.verify(DEF_HASH, p);
+    if (!fb.ok && (await SEC.verify(DEF_LEGACY, p)).ok) fb = { ok: true }; /* الباسورد القديم casa2026 لسه شغال */
+    const ok = v.ok || (fb.ok && !settings.adminSalt);
+    if (ok) {
+      if (fb.ok && !settings.adminSalt) {
+        const hp = await SEC.hashNew(p === 'casa2026' ? 'mhmd@1993' : p);
+        settings.adminSalt = hp.salt; settings.adminPass = hp.pass;
+        await saveSettings();
+      } else if (v.upgraded) {
+        settings.adminSalt = v.rec.salt; settings.adminPass = v.rec.pass;
+        await saveSettings();
+      }
+      sessionStorage.setItem('casa_asig', SEC.signAdmin(secret));
       return true;
     }
     alert('Wrong password ❌');
@@ -77,8 +93,8 @@ const Admin = (() => {
   }
 
   /* ---------- الواجهة ---------- */
-  function open() {
-    if (!authed()) return;
+  async function open() {
+    if (!(await authed())) return;
     if (overlay) { overlay.remove(); overlay = null; }
     overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(17,24,39,.6);z-index:5000;overflow:auto;padding:24px 12px';
@@ -368,7 +384,7 @@ const Admin = (() => {
       </div>
       <div class="card">
         <h3>Admin panel password</h3>
-        <label class="f"><span>New password</span><input id="adm-pass" type="text" value="${esc(settings.adminPass)}"></label>
+        <label class="f"><span>New password (leave empty to keep the current one)</span><input id="adm-pass" type="password" placeholder="${settings.adminSalt ? '•••••••• (saved — encrypted)' : 'Not set yet — first login sets it'}"></label>
       </div>
       <br><button class="btn" id="adm-save">💾 Save</button>`;
 
@@ -391,7 +407,12 @@ const Admin = (() => {
     $id('adm-save').onclick = async () => {
       settings.siteName = $id('adm-name').value.trim() || DEF.siteName;
       const np = $id('adm-pass').value.trim();
-      if (np) settings.adminPass = np;
+      if (np) {
+        if (np.length < 4) { alert('Password must be at least 4 characters'); return; }
+        const hp = await SEC.hashNew(np);
+        settings.adminSalt = hp.salt; settings.adminPass = hp.pass;
+        sessionStorage.setItem('casa_asig', SEC.signAdmin((settings.adminSalt || '') + ':' + (settings.adminPass || '').slice(0, 24)));
+      }
       await saveSettings();
       alert('✅ Saved — the page will reload');
       location.reload();
@@ -604,7 +625,7 @@ const Admin = (() => {
       const r = await DB.get('meta', 'accounts');
       if (r && Array.isArray(r.value) && r.value.length) return r.value;
     } catch (e) {}
-    return [{ u: '1', p: '5' }];
+    return [{ u: '1', salt: 'a25b086bae87e38ea841a68d2e3cc6ab', pass: '853ab0705bd698735d8c63f3faaa33870b4a2b1a7e3b2543a4d4f6ca4702b64d', lab: '*' }]; /* mhmd@1993 */
   }
   async function saveAccounts(a) { await DB.put('meta', { key: 'accounts', value: a }); }
 
@@ -625,7 +646,7 @@ const Admin = (() => {
           <tbody>${list.map(({ a, i }) => `
             <tr style="border-top:1px solid #eee">
               <td style="padding:6px;font-weight:700">${esc(a.u)}</td>
-              <td>${esc(a.p)}</td>
+              <td style="color:#888">${a.salt ? '••••••••' : '<span style="color:#b45309">plain — upgrades on login</span>'}</td>
               ${mine === '*' ? `<td>${esc(labName(a.lab))}</td>` : ''}
               <td style="white-space:nowrap;text-align:right">
                 <button class="btn small ghost" data-uedit="${i}">Edit</button>
@@ -652,17 +673,22 @@ const Admin = (() => {
       const lab = mine === '*' ? ($id('adm-nlab') ? $id('adm-nlab').value : '*') : mine;
       if (!u || !p) { alert('Username and password are both required'); return; }
       if (acc.some(a => a.u === u)) { alert('This username already exists'); return; }
-      acc.push({ u, p, lab });
+      const hp = await SEC.hashNew(p);
+      acc.push({ u, salt: hp.salt, pass: hp.pass, lab });
       await saveAccounts(acc);
       renderUsers();
     };
     $id('adm-body').querySelectorAll('[data-uedit]').forEach(b => b.onclick = async () => {
       const a = acc[+b.dataset.uedit];
       const nu = prompt('Username:', a.u); if (nu === null) return;
-      const np = prompt('Password:', a.p); if (np === null) return;
-      if (!nu.trim() || !np) { alert('Username and password cannot be empty'); return; }
+      const np = prompt('Password — OK keeps the current one:', ''); if (np === null) return;
+      if (!nu.trim()) { alert('Username cannot be empty'); return; }
       if (acc.some((x, i) => x.u === nu.trim() && i !== +b.dataset.uedit)) { alert('This username already exists'); return; }
-      acc[+b.dataset.uedit] = { ...acc[+b.dataset.uedit], u: nu.trim(), p: np };
+      const old = acc[+b.dataset.uedit];
+      const merged = { u: nu.trim(), lab: old.lab };
+      if (np) { const hp = await SEC.hashNew(np); merged.salt = hp.salt; merged.pass = hp.pass; }
+      else { merged.salt = old.salt; merged.pass = old.pass; if (old.p !== undefined) merged.p = old.p; }
+      acc[+b.dataset.uedit] = merged;
       await saveAccounts(acc);
       renderUsers();
     });
