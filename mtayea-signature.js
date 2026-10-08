@@ -67,18 +67,6 @@
       '</a>';
     document.body.appendChild(wrap);
 
-    /* حارس: لو تطبيق الموقع مسح التوقيع (إعادة رسم للصفحة)، يرجع تاني */
-    var guard = function () {
-      if (!document.body) return;
-      if (!document.getElementById('mtayea-signature')) document.body.appendChild(wrap);
-    };
-    if (typeof MutationObserver !== 'undefined' && document.body) {
-      new MutationObserver(function () { setTimeout(guard, 60); })
-        .observe(document.body, { childList: true });
-    }
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(guard, 1200); });
-    window.addEventListener('load', function () { setTimeout(guard, 2500); });
-
     /* ظهور ناعم بعد تحميل الصفحة */
     window.addEventListener('load', function () {
       setTimeout(function () {
