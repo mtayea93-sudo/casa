@@ -4,7 +4,7 @@
 <!-- 🔄 تحديث إجباري: أي جهاز يفتح نسخة قديمة بيتحدّث فوراً -->
 <script>
 (function () {
-  var V = 'casa-2026-10-09b';
+  var V = 'casa-2026-10-09c';
   window.APP_VERSION = V;
   function nukedReload() {
     if (window.__nuking) return; window.__nuking = true;
@@ -101,6 +101,8 @@ window.addEventListener('unhandledrejection', function (e) {
 <script src="js/morpho.js"></script>
 <script src="js/annotate.js"></script>
 <script src="js/app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/csl-bridge.js"></script>
 <script src="js/admin.js"></script>
 <script>
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
