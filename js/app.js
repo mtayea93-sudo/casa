@@ -444,6 +444,7 @@ async function pageStudy(pid, sid) {
 
     const newId = await DB.put('studies', rec);
     currentSid = newId;
+    try { if (window.CSLBridge) CSLBridge.pushStudy(newId); } catch (e) {}
     toast('Saved');
     return newId;
   }
