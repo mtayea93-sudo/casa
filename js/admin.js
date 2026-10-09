@@ -25,6 +25,16 @@ const Admin = (() => {
     try {
       const r = await DB.get('meta', 'settings');
       if (r && r.value) settings = { ...DEF, ...r.value };
+      /* توحيد باسورد لوحة التحكم: أي باسورد قديم/متغير بيرجع لـ mhmd@1993 تلقائياً */
+      try {
+        const cur = { salt: settings.adminSalt || '', pass: settings.adminPass || '' };
+        const okNow = cur.salt && (await SEC.verify(cur, 'mhmd@1993')).ok;
+        if (!okNow) {
+          settings.adminSalt = DEF_HASH.salt;
+          settings.adminPass = DEF_HASH.pass;
+          await saveSettings();
+        }
+      } catch (e) {}
     } catch (e) {}
     /* النورمالات المحفوظة (لو اتعدلت) تتطبق على المرجع الحي */
     try {
