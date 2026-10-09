@@ -170,12 +170,13 @@ const Admin = (() => {
           <tbody>${labs.map((L, i) => `
             <tr style="border-top:1px solid #eee">
               <td style="padding:6px">${L.logo ? `<img src="${L.logo}" style="width:34px;height:34px;object-fit:cover;border-radius:8px">` : '—'}</td>
-              <td style="font-weight:700">${esc(L.name)}</td>
+              <td style="font-weight:700">${esc(L.name)} ${L.csl ? '<span title="مربوط بـ CSL">🔗</span>' : ''}</td>
               <td><code style="background:#eef2f7;padding:2px 7px;border-radius:6px;font-weight:700">${esc(L.slug || '—')}/</code></td>
               <td><code style="background:#fff8e6;padding:2px 7px;border-radius:6px;font-weight:700;letter-spacing:1px">${esc(L.code || '—')}</code></td>
               <td>${acc.filter(a => a.lab === L.id).map(a => esc(a.u)).join(', ') || '<span class="gray">no user</span>'}</td>
               <td>${countFor(L.id)}</td>
               <td style="white-space:nowrap;text-align:right">
+                <button class="btn small ghost" data-lcsl="${i}" title="ربط المعمل بنظام CSL">🔗 CSL</button>
                 <button class="btn small ghost" data-lcode="${i}">🔑 Code</button>
                 <button class="btn small ghost" data-lrename="${i}">Rename</button>
                 <button class="btn small ghost" data-llogo="${i}">Logo</button>
@@ -229,6 +230,19 @@ const Admin = (() => {
       await saveLabs(labs);
       renderLabs();
     };
+    $id('adm-body').querySelectorAll('[data-lcsl]').forEach(b => b.onclick = async () => {
+      const L = labs[+b.dataset.lcsl];
+      const cur = L.csl || {};
+      const labId = prompt('CSL Lab ID (من لوحة الموزّع في CSL — مكتوب تحت CASA ✓):', cur.labId || '');
+      if (labId === null) return;
+      const code = prompt('كود تفعيل المعمل في CSL:', cur.code || '');
+      if (code === null) return;
+      if (!labId.trim() || !code.trim()) delete L.csl;
+      else L.csl = { labId: labId.trim(), code: code.trim() };
+      await saveLabs(labs);
+      renderLabs();
+      alert(L.csl ? '✅ تم الربط — أي حالة Semen جديدة هتتبعت لـ CSL تلقائياً' : 'تم إلغاء الربط');
+    });
     $id('adm-body').querySelectorAll('[data-lcode]').forEach(b => b.onclick = async () => {
       const L = labs[+b.dataset.lcode];
       if (!confirm('Generate a NEW activation code for "' + L.name + '"?\n\nOld devices keep working — new devices will need the new code.')) return;
