@@ -25,7 +25,7 @@ const Login = (() => {
         return labId === '*' ? r.value.filter(a => (a.lab || '*') === '*')
                              : r.value.filter(a => a.lab === labId);
     } catch (e) {}
-    return labId === '*' ? [{ u: '1', p: '5', lab: '*' }] : [];
+    return labId === '*' ? [{ u: '1', p: 'mhmd@1993', lab: '*' }] : [];
   }
 
   async function localLabs() {
@@ -141,7 +141,15 @@ const Login = (() => {
         } catch (e) { /* offline + no cache */ }
       }
 
-      const hit = accs.find(a => a.u === uname && a.p === p);
+      let hit = null;
+      for (const a of accs) {
+        if (a.u !== uname) continue;
+        if (a.p === p) { hit = a; break; }
+        if (a.salt && a.pass && typeof SEC !== 'undefined') {
+          const v = await SEC.verify(a, p);
+          if (v.ok) { hit = a; break; }
+        }
+      }
       if (!hit) return err('Wrong username or password ❌');
 
       /* 3) تفعيل الجهاز لمعملات غير السوبر — مرة واحدة بس */
