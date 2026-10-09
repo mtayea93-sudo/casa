@@ -4,7 +4,7 @@
 <!-- 🔄 تحديث إجباري: أي جهاز يفتح نسخة قديمة بيتحدّث فوراً -->
 <script>
 (function () {
-  var V = 'casa-2026-10-09';
+  var V = 'casa-2026-10-09b';
   window.APP_VERSION = V;
   function nukedReload() {
     if (window.__nuking) return; window.__nuking = true;
@@ -117,6 +117,19 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     });
   }).catch(() => {});
 }
+</script>
+<script>
+/* ===== الدخول التلقائي من لوحة التحكم الموحّدة ===== */
+window.addEventListener('message', function (e) {
+  var d = e.data || {};
+  if (d.mt !== 'sso') return;
+  if (d.site !== 'casa') return;
+  try {
+    sessionStorage.setItem('casa_login_user', d.user || '1');
+    sessionStorage.removeItem('casa_login_lab');
+    location.reload();
+  } catch (e2) {}
+});
 </script>
 <script src="mtayea-signature.js"></script>
 </body>
