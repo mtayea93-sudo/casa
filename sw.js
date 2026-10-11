@@ -6,7 +6,6 @@ const SHELL = [
   'assets/target-morph-1.png', 'assets/target-morph-2.png', 'assets/target-motility.mp4',
   'assets/path-diagram.png', 'assets/defects-diagram.png',
   'css/style.css',
-  'js/vendor/firebase-app-compat.js', 'js/vendor/firebase-database-compat.js', 'js/vendor/firebase-auth-compat.js',
   'js/db.js', 'js/login.js', 'js/sync.js', 'js/report.js', 'js/camera.js', 'js/analyze.js',
   'js/morpho.js', 'js/annotate.js', 'js/app.js', 'js/admin.js',
 ];
