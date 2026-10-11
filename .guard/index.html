@@ -4,13 +4,13 @@
 <!-- 🔄 تحديث إجباري: أي جهاز يفتح نسخة قديمة بيتحدّث فوراً -->
 <script>
 (function () {
-  var V = 'casa-2026-10-13';
+  var V = 'casa-2026-10-14';
   window.APP_VERSION = V;
   function nukedReload() {
     if (window.__nuking) return; window.__nuking = true;
     if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); });
     if ('caches' in window) caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
-    setTimeout(function () { location.reload(); }, 300);
+    setTimeout(function () { location.replace(location.pathname + '?mtu=' + Date.now() + location.hash); }, 300);
   }
   async function checkVersion() {
     try {
@@ -88,18 +88,18 @@ window.addEventListener('unhandledrejection', function (e) {
 
 <div id="toast" class="toast"></div>
 
-<script src="js/db.js"></script>
-<script src="js/security.js"></script>
-<script src="js/login.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/report.js"></script>
-<script src="js/camera.js"></script>
-<script src="js/analyze.js"></script>
-<script src="js/morpho.js"></script>
-<script src="js/annotate.js"></script>
-<script src="js/app.js"></script>
-<script src="js/csl-bridge.js"></script>
-<script src="js/admin.js"></script>
+<script src="js/db.js?v=casa-2026-10-14"></script>
+<script src="js/security.js?v=casa-2026-10-14"></script>
+<script src="js/login.js?v=casa-2026-10-14"></script>
+<script src="js/sync.js?v=casa-2026-10-14"></script>
+<script src="js/report.js?v=casa-2026-10-14"></script>
+<script src="js/camera.js?v=casa-2026-10-14"></script>
+<script src="js/analyze.js?v=casa-2026-10-14"></script>
+<script src="js/morpho.js?v=casa-2026-10-14"></script>
+<script src="js/annotate.js?v=casa-2026-10-14"></script>
+<script src="js/app.js?v=casa-2026-10-14"></script>
+<script src="js/csl-bridge.js?v=casa-2026-10-14"></script>
+<script src="js/admin.js?v=casa-2026-10-14"></script>
 <script>
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
