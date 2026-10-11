@@ -20,6 +20,15 @@ async function init() {
   await DB.seed();
   TEMPLATES = (await DB.get('meta', 'templates')).value;
   seedBundledTargets();
+  /* وضع المعاينة: جلسة demo read-only — بنمنع أي كتابة/حذف في قاعدة البيانات */
+  if (typeof Login !== 'undefined' && Login.current() === 'demo') {
+    DB.put = async () => { if (typeof toast === 'function') toast('👁️ وضع المعاينة — ممنوع التعديل'); return { blocked: true }; };
+    DB.del = async () => { if (typeof toast === 'function') toast('👁️ وضع المعاينة — ممنوع الحذف'); return { blocked: true }; };
+    const ban = document.createElement('div');
+    ban.textContent = '👁️ وضع المعاينة — تفرّج على كل حاجة، ممنوع الإضافة أو التعديل أو الحذف';
+    ban.style.cssText = 'background:#fff8e6;color:#8a6d1a;padding:8px 14px;font-size:13px;font-weight:700;text-align:center;border-bottom:1px solid #f0dfae;position:sticky;top:0;z-index:99';
+    document.body.insertBefore(ban, document.body.firstChild);
+  }
   if (typeof SYNC !== 'undefined') SYNC.init();
   netStatus();
   route();
@@ -29,7 +38,8 @@ function netStatus() {
   const el = $('#net-status');
   if (!el) return;
   if (typeof SYNC !== 'undefined' && SYNC.ready && SYNC.connected) {
-    el.textContent = 'Cloud connected ☁️ — data syncs across all your devices';
+    const t = SYNC.lastSync ? new Date(SYNC.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    el.textContent = 'Cloud connected ☁️ — synced ' + t + ' — data syncs across all your devices';
     el.className = 'net on';
     return;
   }
@@ -39,7 +49,7 @@ function netStatus() {
     return;
   }
   const on = navigator.onLine;
-  el.textContent = on ? 'Online' : 'Offline — work is saved locally';
+  el.textContent = on ? 'Connecting to cloud…' : 'Offline — work is saved locally';
   el.className = 'net ' + (on ? 'on' : 'off');
 }
 
@@ -60,7 +70,7 @@ async function getLabs() {
 async function brandFor(rec) {
   const labs = await getLabs();
   const hit = labs.find(x => x.id === (rec.labId || 'main'));
-  if (hit) return { name: hit.name, logo: hit.logo || '' };
+  if (hit) return { name: hit.name, logo: hit.logo || '', header: hit.header || '', footer: hit.footer || '' };
   try {
     const r = await DB.get('meta', 'settings');
     if (r && r.value) return { name: r.value.siteName || 'MT CASA', logo: r.value.logo || '' };
@@ -266,6 +276,7 @@ const MORPH = [
   ['bigHead','Big Head'],['smallHead','Small head'],['tapered','Tapered head'],
   ['pyriform','Pyriform head'],['round','Round head'],['amorphous','Amorphus head'],
   ['vacuolated','Vacuolated head'],['smallAcrosome','Small akrosome'],['doubleHead','Double head'],
+  ['microspermia','Microspermia'],
   ['thinNeck','Thin neck'],['bentNeck','Bent neck'],['thickNeck','Thick / irregular neck'],
   ['asymmetric','Asymmetric connected'],
   ['bentTail','Bent tail'],['multiTail','Multi tail'],['tailBreakdown','Tail breakdown'],
@@ -358,31 +369,35 @@ async function pageStudy(pid, sid) {
       currentSid = sid;
       return DB.byIndex('media', 'studyId', sid);
     },
-    apply: vals => {
+    apply: async vals => {
       const map = { pr: 'pr', np: 'np', im: 'immotile', vcl: 'vcl', vsl: 'vsl',
                     vap: 'vap', lin: 'lin', wob: 'wob', str: 'str' };
       for (const [vk, fk] of Object.entries(map)) {
         const el = $('#f-' + fk);
         if (el) { el.value = vals[vk]; el.dispatchEvent(new Event('input')); }
       }
-      toast('Analysis results filled into the study');
+      /* حفظ فوري — النتيجة بتتسجل في الدراسة وتتزامن من غير ما المستخدم يدوس Save */
+      try { await save(); toast('✅ Results saved into the study and synced'); }
+      catch (e) { toast('Filled — press Save to store'); }
     },
   });
   if (typeof Morpho !== 'undefined') Morpho.configure({
     getStudyId: async () => currentSid || await save(),
-    apply: vals => {
+    apply: async vals => {
       const el = $('#f-normalMorph');
       if (el) { el.value = vals.normalMorph; el.dispatchEvent(new Event('input')); }
-      toast('Normal morphology % filled into the study');
+      try { await save(); toast('✅ Morphology saved and synced'); }
+      catch (e) { toast('Filled — press Save to store'); }
     },
   });
   if (typeof Annotate !== 'undefined') Annotate.configure({
     getStudyId: async () => currentSid || await save(),
-    apply: vals => {
+    apply: async vals => {
       const el = $('#f-normalMorph'), w = $('#f-wbc');
       if (el && vals.normalMorph != null) { el.value = vals.normalMorph; el.dispatchEvent(new Event('input')); }
       if (w && vals.wbc != null) { w.value = vals.wbc; w.dispatchEvent(new Event('input')); }
-      toast('Manual marking results filled into the study');
+      try { await save(); toast('✅ Marking results saved and synced'); }
+      catch (e) { toast('Filled — press Save to store'); }
     },
   });
 
@@ -435,9 +450,13 @@ async function pageStudy(pid, sid) {
     if (!isNaN(vol) && !isNaN(conc)) rec.count = (conc * vol).toFixed(1);
     const pr = parseFloat(rec.pr), np = parseFloat(rec.np);
     if (!isNaN(pr) && !isNaN(np)) rec.motileRatio = String(pr + np);
+    /* IM = 100 − (PR + NP) تلقائياً لو خانة السوكن فاضية */
+    const imEl = $('#f-immotile');
+    if (imEl && imEl.value === '' && !isNaN(pr) && !isNaN(np)) { rec.immotile = String(100 - (pr + np)); imEl.value = rec.immotile; }
 
     const newId = await DB.put('studies', rec);
     currentSid = newId;
+    try { if (window.CSLBridge) CSLBridge.pushStudy(newId); } catch (e) {}
     toast('Saved');
     return newId;
   }
@@ -486,12 +505,8 @@ async function pageReport(sid) {
   const media = await DB.byIndex('media', 'studyId', sid);
   const imgUrls = media.filter(m => m.kind === 'image').map(m => DB.urlFor(m));
   const videos = media.filter(m => m.kind === 'video');
-  const vidUrls = await Promise.all(videos.map(async m => {
-    const src = DB.urlFor(m);
-    return { src, frame: await videoFrame(src) };
-  }));
 
-  $('#print-area').innerHTML = Report.build(p, s, DB.REFERENCES, imgUrls, vidUrls, brand);
+  $('#print-area').innerHTML = Report.build(p, s, DB.REFERENCES, imgUrls, brand);
 
   $('#app').innerHTML = `
     <div class="card">
@@ -502,11 +517,11 @@ async function pageReport(sid) {
         <a class="btn ghost" href="#patient/${p.id || 'cases'}">Back</a>
       </div>
       <p class="hint">When printing, choose "Save as PDF" — and enable <b>"Background graphics"</b> in the print dialog so the report colors appear.</p>
-      ${videos.length ? `<p>Attached videos (${videos.length}) — they appear in the printed report.</p>` : ''}
+      ${videos.length ? `<p>Attached videos (${videos.length}) — kept on file; not part of the printed report.</p>` : ''}
       ${imgUrls.length ? `<p>Attached images (${imgUrls.length}) — they appear in the printed report.</p>` : ''}
     </div>
     <div class="card" dir="ltr" style="background:#fff">
-      ${Report.build(p, s, DB.REFERENCES, imgUrls, vidUrls, brand)}
+      ${Report.build(p, s, DB.REFERENCES, imgUrls, brand)}
     </div>`;
 
   $('#print').onclick = () => window.print();
@@ -529,6 +544,18 @@ async function pageBackup() {
         <button class="btn ghost" id="cloudRestore" style="display:none">☁️ Restore from cloud</button>
       </div>
       <p id="cloudInfo" class="hint" style="margin-top:8px"></p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost" id="rotateGuard" style="display:none">🔑 Rotate protection key</button>
+      </div>
+      <p class="hint" style="margin-top:6px">Protection key: if a device shows old data, rotate the key — every device will wipe its local copy and re-download from the cloud. The cloud always wins.</p>
+      <br>
+      <h3 style="margin-bottom:6px">Recovery key (on this device)</h3>
+      <p class="hint">Saves a full copy of cases, studies and media inside this device. If data ever gets wiped, restore it from here — no internet needed.</p>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost" id="saveKey">🔐 Save recovery key</button>
+        <button class="btn ghost" id="restoreKey" style="display:none">♻️ Restore from recovery key</button>
+      </div>
+      <p id="keyInfo" class="hint" style="margin-top:6px"></p>
       <br>
       <p class="hint">Keep the file somewhere safe — it contains patient data and media (it can be large). Importing a backup replaces all current data.</p>
     </div>`;
@@ -538,7 +565,68 @@ async function pageBackup() {
     btn.style.display = '';
     btn.onclick = () => SYNC.restoreFromCloud();
     info.textContent = 'Cases and studies sync automatically with Firebase. Media (images/videos) stay on the device and travel through the JSON backup.';
+    const gbtn = $('#rotateGuard');
+    gbtn.style.display = '';
+    gbtn.onclick = async () => {
+      if (!confirm('Rotate the protection key?\n\nEvery device will delete its LOCAL copy and re-download from the cloud. Use this if a device shows old data.')) return;
+      try { await SYNC.rotateGuard(); toast('Protection key rotated — all devices will re-sync'); }
+      catch (e) { alert('Could not rotate key:\n' + (e && e.message ? e.message : e)); }
+    };
   }
+
+  /* ---------- مفتاح الاسترداد: نسخة كاملة جواه الجهاز ---------- */
+  const REC_KEY = 'casa_recovery_v1';
+  const savedKey = (() => { try { return JSON.parse(localStorage.getItem(REC_KEY) || 'null'); } catch (e) { return null; } })();
+  const keyInfo = $('#keyInfo');
+  if (savedKey && Array.isArray(savedKey.patients)) {
+    $('#restoreKey').style.display = '';
+    keyInfo.textContent = `Saved on this device: ${savedKey.patients.length} case(s), ${(savedKey.studies || []).length} study/studies — ${savedKey.savedAt || ''}`;
+  }
+
+  $('#saveKey').onclick = async () => {
+    if (!confirm('Save a recovery key on THIS device?\n\nIt stores a full copy of cases, studies and media in the browser. If the browser data is cleared, the key is lost too — keep a JSON backup as well.')) return;
+    try {
+      const [allP, allS, allM] = await Promise.all([DB.all('patients'), DB.all('studies'), DB.all('media')]);
+      const mediaOut = await Promise.all(allM.map(async m => {
+        const dataUrl = await new Promise(res => {
+          const r = new FileReader();
+          r.onload = () => res(r.result);
+          r.readAsDataURL(m.blob);
+        });
+        const { blob, ...rest } = m;
+        return { ...rest, dataUrl };
+      }));
+      const snap = { app: 'ecasa-web', version: 2, savedAt: new Date().toLocaleString(), patients: visible(allP), studies: visible(allS), media: mediaOut };
+      localStorage.setItem(REC_KEY, JSON.stringify(snap));
+      toast('Recovery key saved on this device');
+      pageBackup();
+    } catch (e) {
+      alert('Could not save recovery key:\n' + (e && e.message ? e.message : e) + '\n\nMedia is probably too large for device storage — use "Download JSON backup" instead.');
+    }
+  };
+
+  $('#restoreKey').onclick = async () => {
+    const snap = (() => { try { return JSON.parse(localStorage.getItem(REC_KEY) || 'null'); } catch (e) { return null; } })();
+    if (!snap || !Array.isArray(snap.patients)) { alert('No recovery key found on this device.'); return; }
+    if (!confirm(`Restore ${snap.patients.length} case(s) and ${(snap.studies || []).length} study/studies from the recovery key?\n\nCurrent data on this device will be replaced!`)) return;
+    try {
+      await DB.clear('patients');
+      await DB.clear('studies');
+      await DB.clear('media');
+      for (const p of snap.patients) await DB.put('patients', p);
+      for (const s of (snap.studies || [])) await DB.put('studies', s);
+      for (const m of (snap.media || [])) {
+        const { dataUrl, ...rest } = m;
+        const blob = dataUrl ? await (await fetch(dataUrl)).blob() : new Blob();
+        await DB.put('media', { ...rest, blob });
+      }
+      if (typeof SYNC !== 'undefined') { SYNC.push('patients'); SYNC.push('studies'); }
+      toast('Restored from recovery key');
+      route();
+    } catch (err) {
+      alert('Restore failed: ' + err.message);
+    }
+  };
 
   $('#export').onclick = async () => {
     const mediaOut = await Promise.all(media.map(async m => {
