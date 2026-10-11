@@ -1,30 +1,39 @@
-/* ===== E-CASA Web — مزامنة Firebase Realtime Database =====
-   بنفس فلسفة نظام معامل صقر (المُصلحة):
+/* ===== E-CASA Web — مزامنة السحابة الخاصة (Cloudflare Worker) =====
+   نفس فلسفة النسخة القديمة بالظبط:
    - الحالات (patients) والدراسات (studies) بتتزامن على السحابة لحظيًا
-   - الوسائط (صور/فيديو) محلية فقط — حجمها كبير، بتتنقل بنسخة JSON الاحتياطية
+   - الوسائط (صور/فيديو) محلية فقط — بتتنقل بنسخة JSON الاحتياطية
    - أول مزامنة لأي جهاز: السحابة هي اللي تكسب (مستحيل نسخة قديمة تمسح البيانات)
    - مفيش أي عملية كتابة فاضية للسحابة
+   - شغال أونلاين وأوفلاين: اللي يتعمل من غير نت بيتحفظ محليًا وبيترفع لوحده أول ما النت يرجع
 */
 const SYNC = (() => {
-  const FB_CONFIG = {
-    apiKey: "AIzaSyA8XG8XyjwRhmrq76oJjCI-Wdh4dTiQkEc",
-    authDomain: "casa-mtayea.firebaseapp.com",
-    databaseURL: "https://casa-mtayea-default-rtdb.firebaseio.com",
-    projectId: "casa-mtayea",
-    storageBucket: "casa-mtayea.firebasestorage.app",
-    messagingSenderId: "872797782501",
-    appId: "1:872797782501:web:f86c79b103f1014511af0c"
-  };
-  /* كل معمل بيسync على مساره الخاص — عزل كامل للبيانات */
+  const SYNC_URL = 'https://csl-sync.m-tayea93.workers.dev';
+  const SYNC_KEY = 'casa-sync-k3m9qf27ahmed2026';
+  /* كل معمل بيشتغل على مساره الخاص — عزل كامل للبيانات */
   const myLabId = () => (typeof Login !== 'undefined' && Login.lab) ? Login.lab() : '*';
-  const rootFor = lab => (lab && lab !== '*') ? 'ecasa/labs/' + lab : 'ecasa';
-  const ROOT = rootFor(myLabId());
+  const rootFor = lab => (lab && lab !== '*') ? 'labs/' + lab : 'main';
+  const docFor = (lab, k) => rootFor(lab) + ':' + k;
   const KEYS = ['patients', 'studies', 'meta'];
-  let db = null;
   const state = { ready: false, connected: false, failed: false, authed: false, lastSync: 0, applying: false };
 
   const mtGet = k => parseInt(localStorage.getItem('casa_mt_' + k) || '0', 10);
   const mtSet = (k, t) => localStorage.setItem('casa_mt_' + k, String(t));
+
+  /* طلب واحد للسحابة — أي فشل (نت/timeout) بيرمي استثناء والبيانات محلية وآمنة */
+  async function req(doc, method, body) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const r = await fetch(SYNC_URL + '/casa?key=' + SYNC_KEY + '&doc=' + encodeURIComponent(doc), {
+        method: method || 'GET',
+        signal: ctrl.signal,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (!r.ok) throw new Error('http ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
 
   /* رفع محتوى مخزن للسحابة */
   async function push(k) {
@@ -34,9 +43,10 @@ const SYNC = (() => {
       if (!Array.isArray(d)) return;
       if (k === 'studies') d = d.filter(r => r && r.patientId !== undefined && r.patientId !== null);
       if (d.length === 0) return; /* ممنوع نكتب فاضي — بنسيب السحابة زي ما هي */
-      await db.ref(ROOT + '/' + k).set({ t: Date.now(), d });
+      await req(docFor(myLabId(), k), 'PUT', { t: Date.now(), d });
       mtSet(k, Date.now());
       state.lastSync = Date.now();
+      state.connected = true;
       if (typeof netStatus === 'function') netStatus();
     } catch (e) { /* الشبكة وقعت — البيانات محلية وآمنة */ }
   }
@@ -70,10 +80,12 @@ const SYNC = (() => {
 
   function hasData(a) { return Array.isArray(a) && a.length > 0; }
 
-  function listen(k) {
-    if (!localStorage.getItem('casa_mt_' + k)) mtSet(k, 0); /* أول مرة: السحابة تكسب */
-    db.ref(ROOT + '/' + k).on('value', async s => {
-      const v = s.val();
+  /* سحب مفتاح من السحابة وقرار مين يكسب — نفس منطق المستمع القديم بالظبط */
+  async function pull(k) {
+    if (state.applying) return;
+    try {
+      const v = await req(docFor(myLabId(), k), 'GET');
+      state.connected = true;
       const mt = mtGet(k);
       let data = null, valid = false, wrapped = false;
       if (v && typeof v === 'object' && 'd' in v) { data = v.d; wrapped = true; valid = Array.isArray(data); }
@@ -81,7 +93,7 @@ const SYNC = (() => {
       if (!valid) {
         /* السحابة فاضية/مش مفهومة: نمسك المحلي ونرفعه لو فيه بيانات */
         const lv = await DB.all(k);
-        if (hasData(lv)) { try { await db.ref(ROOT + '/' + k).set({ t: Date.now(), d: lv }); mtSet(k, Date.now()); } catch (e) {} }
+        if (hasData(lv)) { try { await req(docFor(myLabId(), k), 'PUT', { t: Date.now(), d: lv }); mtSet(k, Date.now()); state.lastSync = Date.now(); } catch (e) {} }
         return;
       }
       if (wrapped) {
@@ -92,15 +104,16 @@ const SYNC = (() => {
           if (typeof route === 'function') route();
         } else if (v.t < mt) {
           const lv = await DB.all(k);
-          if (hasData(lv)) { try { await db.ref(ROOT + '/' + k).set({ t: mt, d: lv }); } catch (e) {} }
+          if (hasData(lv)) { try { await req(docFor(myLabId(), k), 'PUT', { t: mt, d: lv }); } catch (e) {} }
         }
       } else {
         await applyCloud(k, data);
         mtSet(k, Date.now());
-        try { await db.ref(ROOT + '/' + k).set({ t: Date.now(), d: data }); } catch (e) {}
+        try { await req(docFor(myLabId(), k), 'PUT', { t: Date.now(), d: data }); } catch (e) {}
+        state.lastSync = Date.now();
         if (typeof route === 'function') route();
       }
-    });
+    } catch (e) { /* offline */ }
   }
 
   function wrapDb() {
@@ -117,8 +130,7 @@ const SYNC = (() => {
   const guardLocal = () => localStorage.getItem('casa_guard') || '';
 
   async function guardFromCloud() {
-    const snap = await db.ref(ROOT + '/meta').get();
-    const v = snap.val();
+    const v = await req(docFor(myLabId(), 'meta'), 'GET');
     if (v && typeof v === 'object' && 'd' in v && Array.isArray(v.d)) {
       const rec = v.d.find(r => r && r.key === GUARD_KEY);
       return rec ? String(rec.value) : '';
@@ -130,6 +142,7 @@ const SYNC = (() => {
   async function checkGuard() {
     try {
       const cloud = await guardFromCloud();
+      state.connected = true;
       const local = guardLocal();
       if (cloud && cloud !== local) {
         for (const k of ['patients', 'studies']) {
@@ -147,16 +160,16 @@ const SYNC = (() => {
   /* تدوير المفتاح من لوحة التحكم — الجهاز ده يبقى هو المرجع:
      بيرفع داتته للسحابة الأول، وبعدها كل الأجهزة التانية هتمسح وتسحب من السحابة */
   async function rotateGuard() {
-    /* استنى الاتصال لحد 15 ثانية — أحياناً Firebase بياخد وقته في أول تشغيل */
+    /* استنى أول اتصال لحد 15 ثانية */
     for (let i = 0; i < 30 && !state.ready; i++) await new Promise(r => setTimeout(r, 500));
-    if (!state.ready) throw new Error('Firebase is still starting — check internet and try again');
+    if (!state.ready) throw new Error('Cloud is still starting — check internet and try again');
     const k = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     /* ارفع الحالات والدراسات الحالية للسحابة الأول — دي تبقى النسخة المرجعية */
     for (const kk of ['patients', 'studies']) {
       const d = await DB.all(kk);
       if (Array.isArray(d) && d.length) {
         const clean = kk === 'studies' ? d.filter(r => r && r.patientId !== undefined && r.patientId !== null) : d;
-        if (clean.length) { await db.ref(ROOT + '/' + kk).set({ t: Date.now(), d: clean }); mtSet(kk, Date.now()); }
+        if (clean.length) { await req(docFor(myLabId(), kk), 'PUT', { t: Date.now(), d: clean }); mtSet(kk, Date.now()); }
       }
     }
     await DB.put('meta', { key: GUARD_KEY, value: k });
@@ -165,67 +178,41 @@ const SYNC = (() => {
     return k;
   }
 
-  function startDb() {
-    if (state.ready) return;
-    try {
-      db = firebase.database();
-      state.ready = true;
-      state.authed = true;
-      db.ref('.info/connected').on('value', s => {
-        state.connected = !!s.val();
-        if (s.val()) KEYS.forEach(push); /* أول ما النت يرجع: ارفع أي حاجة فاتت */
-        if (typeof netStatus === 'function') netStatus();
-      });
-      /* فحص المفتاح قبل ما نسمع أي حاجة — عشان قديم محلي مايطلعش للسحابة */
-      checkGuard().then(wiped => {
-        if (wiped && typeof route === 'function') route();
-        KEYS.forEach(listen);
-        wrapDb();
-        if (wiped) state.lastSync = Date.now();
-        /* شبكة أمان: كل 45 ثانية لو متصل ارفع نسخة — أي داتا "مش مسموعة" بتتصلح لوحدها */
-        setInterval(() => { if (state.connected && !state.applying) KEYS.forEach(push); }, 45000);
-      });
-    } catch (e) { state.failed = true; }
-  }
-
   function init() {
-    if (typeof firebase === 'undefined') { state.failed = true; return; }
-    try {
-      if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
-      /* دخول مجهول تلقائي: القواعد الجديدة بتشترط auth != null.
-         على الموبايل الطلب ممكن يفشل مؤقتًا مع نت ضعيف — بنعيد المحاولة 5 مرات */
-      /* بنحاول الدخول المجهول للأبد — كل 30 ثانية — لحد ما النت يسمح.
-         من غير auth القواعد بترفض كل حاجة، فالاستسلام مش اختيار */
-      let tries = 0;
-      const tryAuth = () => {
-        firebase.auth().signInAnonymously().then(startDb).catch(() => {
-          tries++;
-          setTimeout(tryAuth, tries < 5 ? 3000 : 30000);
-        });
-      };
-      tryAuth();
-    } catch (e) { state.failed = true; }
-  }
-
-  /* دخول مجهول مضمون (بإعادات) — بنستخدمه في شاشة الدخول قبل ما التطبيق يفتح */
-  function ensureAuth() {
-    return new Promise((resolve, reject) => {
-      if (typeof firebase === 'undefined') return reject(new Error('Firebase SDK not loaded'));
-      try { if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG); } catch (e) {}
-      if (firebase.auth().currentUser) return resolve(true);
-      let tries = 0;
-      const attempt = () => firebase.auth().signInAnonymously()
-        .then(() => resolve(true))
-        .catch(e => { if (++tries >= 8) reject(e); else setTimeout(attempt, 1500); });
-      attempt();
+    if (state.ready) return;
+    state.ready = true;
+    state.authed = true;
+    window.addEventListener('online', () => {
+      state.connected = true;
+      KEYS.forEach(push); /* أول ما النت يرجع: ارفع أي حاجة فاتت */
+      if (typeof netStatus === 'function') netStatus();
+    });
+    window.addEventListener('offline', () => {
+      state.connected = false;
+      if (typeof netStatus === 'function') netStatus();
+    });
+    state.connected = navigator.onLine;
+    /* فحص المفتاح قبل أي سحب — عشان قديم محلي مايطلعش للسحابة */
+    checkGuard().then(wiped => {
+      if (wiped && typeof route === 'function') route();
+      KEYS.forEach(k => { if (!localStorage.getItem('casa_mt_' + k)) mtSet(k, 0); }); /* أول مرة: السحابة تكسب */
+      wrapDb();
+      KEYS.forEach(pull);
+      if (wiped) state.lastSync = Date.now();
+      /* شبكة أمان: كل 30 ثانية اسحب، وكل 45 ثانية ارفع —
+         أي داتا "مش مسموعة" بتتصلح لوحدها في الاتنين */
+      setInterval(() => { if (navigator.onLine && !state.applying) KEYS.forEach(pull); }, 30000);
+      setInterval(() => { if (navigator.onLine && !state.applying) KEYS.forEach(push); }, 45000);
+      if (typeof netStatus === 'function') netStatus();
     });
   }
 
+  /* توافق مع شاشة الدخول — مفيش auth تاني، السحابة بمفتاح سري مدمج */
+  function ensureAuth() { return Promise.resolve(true); }
+
   /* قراءة لقطة من meta بمسار معمل معين (مستخدمة في شاشة الدخول) */
   async function fetchMeta(lab, key) {
-    await ensureAuth();
-    const snap = await firebase.database().ref(rootFor(lab) + '/meta').get();
-    const v = snap.val();
+    const v = await req(docFor(lab, 'meta'), 'GET');
     if (v && typeof v === 'object' && 'd' in v && Array.isArray(v.d)) {
       const rec = v.d.find(r => r && r.key === key);
       return rec ? rec.value : null;
@@ -234,9 +221,8 @@ const SYNC = (() => {
     return null;
   }
 
-  /* دليل المعامل العام — بيعيش في المسار الرئيسي ومتاح لأي حد متسجل */
+  /* دليل المعامل العام — بيعيش في المسار الرئيسي ومتاح لأي حد */
   async function fetchLabs() {
-    await ensureAuth();
     const arr = await fetchMeta('*', 'labs');
     return Array.isArray(arr) ? arr : [];
   }
@@ -247,7 +233,7 @@ const SYNC = (() => {
 
   /* استعادة يدوية: تمسح المحلي ويسحب السحابة (من صفحة النسخ الاحتياطي) */
   async function restoreFromCloud() {
-    if (!state.ready) { alert('Firebase is not connected — cannot restore right now'); return; }
+    if (!state.ready) { alert('Cloud is not connected — cannot restore right now'); return; }
     if (!confirm('Cases and studies on this device will be replaced with the cloud copy. Are you sure?')) return;
     KEYS.forEach(k => { localStorage.removeItem('casa_mt_' + k); });
     location.reload();
