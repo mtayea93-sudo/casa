@@ -450,6 +450,9 @@ async function pageStudy(pid, sid) {
     if (!isNaN(vol) && !isNaN(conc)) rec.count = (conc * vol).toFixed(1);
     const pr = parseFloat(rec.pr), np = parseFloat(rec.np);
     if (!isNaN(pr) && !isNaN(np)) rec.motileRatio = String(pr + np);
+    /* IM = 100 − (PR + NP) تلقائياً لو خانة السوكن فاضية */
+    const imEl = $('#f-immotile');
+    if (imEl && imEl.value === '' && !isNaN(pr) && !isNaN(np)) { rec.immotile = String(100 - (pr + np)); imEl.value = rec.immotile; }
 
     const newId = await DB.put('studies', rec);
     currentSid = newId;
