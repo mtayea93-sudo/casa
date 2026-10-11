@@ -1,39 +1,26 @@
 /* ===== CSL Bridge — ربط CASA بنظام CSL =====
    أي حالة Semen Analysis تتسجل هنا بتتبعت فوراً لنفس المعمل في CSL
-   (قسم «المعمل» — labops) كزيارة جاهزة للطباعة مع تقريرها. */
+   (قسم «المعمل» — labops) كزيارة جاهزة للطباعة مع تقريرها.
+   شغال على نفس سحابة CSL (Cloudflare Worker) — من غير Firebase. */
 window.CSLBridge = (function () {
-  const CFG = {
-    apiKey: "AIzaSyAcLAL-3zzx4biBn97QqBiaWS4MU7Cf3E",
-    authDomain: "lab-inventory-b2f6e.firebaseapp.com",
-    projectId: "lab-inventory-b2f6e",
-    storageBucket: "lab-inventory-b2f6e.firebasestorage.app",
-    messagingSenderId: "694689884198",
-    appId: "1:694689884198:web:e8919388ce0041a8d11ee7"
-  };
+  const SYNC_URL = 'https://csl-sync.m-tayea93.workers.dev';
+  const CSL_KEY = 'csl-sync-9f31kx7qv2mhmd93';
   const PROFILE_ID = 9900001, TEST_ID = 9900001;
-  let db = null, authedFor = null, busy = null;
+  let busy = null;
 
-  function fb() {
-    let app = firebase.apps.find(a => a.name === 'csl-bridge');
-    if (!app) app = firebase.initializeApp(CFG, 'csl-bridge');
-    db = firebase.firestore(app);
-    return firebase.auth(app);
-  }
-  const mailFor = id => ('csl_' + String(id).replace(/[^a-z0-9]/gi, '_') + '@csl-app.web.app').toLowerCase();
-
-  async function auth(labId, code) {
-    const A = fb();
-    if (authedFor === labId && A.currentUser) return;
-    const email = mailFor(labId);
-    try { await A.signInWithEmailAndPassword(email, code); }
-    catch (e) {
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
-        await A.createUserWithEmailAndPassword(email, code);
-      } else if (e.code === 'auth/wrong-password') {
-        throw new Error('كود تفعيل CSL اتغيّر — حدّث الربط من لوحة تحكم CASA');
-      } else throw e;
-    }
-    authedFor = labId;
+  async function reqLab(labId, method, body) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const r = await fetch(SYNC_URL + '/lab/' + encodeURIComponent(labId) + '?key=' + CSL_KEY, {
+        method: method || 'GET',
+        signal: ctrl.signal,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (!r.ok) throw new Error('http ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(t); }
   }
 
   function ensureProfile(DBc) {
@@ -73,14 +60,12 @@ window.CSLBridge = (function () {
       let labs = [];
       try { const r = await DB.get('meta', 'labs'); if (r && Array.isArray(r.value)) labs = r.value; } catch (e) {}
       const L = labs.find(x => x.id === (st.labId || p.labId || 'main')) || labs.find(x => x.id === 'main') || labs[0];
-      if (!L || !L.csl || !L.csl.labId || !L.csl.code) return; /* المعمل ده مش مربوط بـ CSL */
+      if (!L || !L.csl || !L.csl.labId) return; /* المعمل ده مش مربوط بـ CSL */
       if (busy) return; busy = true;
       try {
-        await auth(L.csl.labId, L.csl.code);
-        const ref = db.collection('csl').doc(L.csl.labId);
-        const snap = await ref.get();
+        const doc = await reqLab(L.csl.labId, 'GET');
         let DBc = {};
-        if (snap.exists) { const d = snap.data(); try { DBc = d.dataJson ? JSON.parse(d.dataJson) : (d.data || {}); } catch (e) { DBc = {}; } }
+        if (doc && doc.v && typeof doc.v === 'object') DBc = doc.v;
         ensureProfile(DBc);
         DBc.ypatients = DBc.ypatients || []; DBc.yvisits = DBc.yvisits || [];
         DBc.seq = DBc.seq || {};
@@ -94,7 +79,7 @@ window.CSLBridge = (function () {
           DBc.yvisits.push(v);
         }
         v.results[PROFILE_ID] = { [TEST_ID]: summary(st, p) };
-        await ref.set({ dataJson: JSON.stringify(DBc), updatedAt: new Date().toISOString() });
+        await reqLab(L.csl.labId, 'PUT', { v: DBc, at: new Date().toISOString() });
         if (typeof toast === 'function') toast('☁️ الحالة اتبعتت لـ CSL');
       } finally { busy = false; }
     } catch (e) { console.error('CSLBridge:', e); }
