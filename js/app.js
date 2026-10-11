@@ -20,6 +20,15 @@ async function init() {
   await DB.seed();
   TEMPLATES = (await DB.get('meta', 'templates')).value;
   seedBundledTargets();
+  /* وضع المعاينة: جلسة demo read-only — بنمنع أي كتابة/حذف في قاعدة البيانات */
+  if (typeof Login !== 'undefined' && Login.current() === 'demo') {
+    DB.put = async () => { if (typeof toast === 'function') toast('👁️ وضع المعاينة — ممنوع التعديل'); return { blocked: true }; };
+    DB.del = async () => { if (typeof toast === 'function') toast('👁️ وضع المعاينة — ممنوع الحذف'); return { blocked: true }; };
+    const ban = document.createElement('div');
+    ban.textContent = '👁️ وضع المعاينة — تفرّج على كل حاجة، ممنوع الإضافة أو التعديل أو الحذف';
+    ban.style.cssText = 'background:#fff8e6;color:#8a6d1a;padding:8px 14px;font-size:13px;font-weight:700;text-align:center;border-bottom:1px solid #f0dfae;position:sticky;top:0;z-index:99';
+    document.body.insertBefore(ban, document.body.firstChild);
+  }
   if (typeof SYNC !== 'undefined') SYNC.init();
   netStatus();
   route();
