@@ -241,7 +241,21 @@ const Admin = (() => {
       else L.csl = { labId: labId.trim(), code: code.trim() };
       await saveLabs(labs);
       renderLabs();
-      alert(L.csl ? '✅ تم الربط — أي حالة Semen جديدة هتتبعت لـ CSL تلقائياً' : 'تم إلغاء الربط');
+      /* قول لـ CSL على معرف موقع CASA عشان الحالات المنوية توصل هنا تلقائياً */
+      if (L.csl) {
+        try {
+          const r = await fetch('https://csl-sync.m-tayea93.workers.dev/meta?key=csl-sync-9f31kx7qv2mhmd93');
+          const meta = await r.json();
+          if (meta && Array.isArray(meta.labs)) {
+            const cl = meta.labs.find(x => x.id === L.csl.labId);
+            if (cl) {
+              cl.casaLabId = L.id; cl.casa = true;
+              await fetch('https://csl-sync.m-tayea93.workers.dev/meta?key=csl-sync-9f31kx7qv2mhmd93', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(meta) });
+            }
+          }
+        } catch (e) { console.warn('csl meta link:', e); }
+      }
+      alert(L.csl ? '✅ تم الربط — الحالات المنوية تمشي بين الموقعين تلقائياً في الاتجاهين' : 'تم إلغاء الربط');
     });
     $id('adm-body').querySelectorAll('[data-lcode]').forEach(b => b.onclick = async () => {
       const L = labs[+b.dataset.lcode];
