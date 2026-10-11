@@ -51,6 +51,7 @@ const Login = (() => {
             <input id="lg-pass" type="password" autocomplete="current-password" style="width:100%;padding:11px;border:1px solid #d9e2ec;border-radius:9px;font-size:15px;margin-top:4px;box-sizing:border-box">
           </label>
           <button id="lg-go" style="width:100%;padding:12px;border:0;border-radius:10px;background:#247ecb;color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit">Sign in</button>
+          <button id="lg-demo" style="width:100%;padding:10px;border:1px solid #247ecb;border-radius:10px;background:#fff;color:#247ecb;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:10px">👁️ دخول تجريبي — معاينة فقط</button>
           <p id="lg-err" style="color:#d13438;font-size:13px;min-height:18px;margin:10px 0 0"></p>
         </div>
       </div>`;
@@ -100,6 +101,14 @@ const Login = (() => {
       const p = document.getElementById('lg-pass').value;
       const err = m => { document.getElementById('lg-err').textContent = m; };
       if (!raw || !p) return err('Enter username and password');
+
+      /* دخول تجريبي: جلسة معاينة فقط — ممنوع الإضافة أو التعديل أو الحذف */
+      if (raw.toLowerCase() === 'demo' && p === 'demo1234') {
+        sessionStorage.setItem(KEY, 'demo');
+        sessionStorage.setItem(LAB, '*');
+        location.reload();
+        return;
+      }
 
       /* فك الصيغة: slug/user أو user */
       let slug = null, uname = raw;
@@ -163,6 +172,12 @@ const Login = (() => {
       location.reload();
     };
     document.getElementById('lg-go').onclick = tryLogin;
+    const demoBtn = document.getElementById('lg-demo');
+    if (demoBtn) demoBtn.onclick = () => {
+      sessionStorage.setItem(KEY, 'demo');
+      sessionStorage.setItem(LAB, '*');
+      location.reload();
+    };
     document.getElementById('lg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
     document.getElementById('lg-user').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
 
