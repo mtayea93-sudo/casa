@@ -1,12 +1,11 @@
 /* ===== E-CASA Web — Service Worker (تحديث أولًا + أوفلاين) ===== */
-const CACHE = 'mt-casa-v20';
+const CACHE = 'mt-casa-v26';
 const SHELL = [
   './', 'index.html', 'manifest.json', 'icon.svg',
   'logo.png', 'favicon-48.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
   'assets/target-morph-1.png', 'assets/target-morph-2.png', 'assets/target-motility.mp4',
   'assets/path-diagram.png', 'assets/defects-diagram.png',
   'css/style.css',
-  'js/vendor/firebase-app-compat.js', 'js/vendor/firebase-database-compat.js', 'js/vendor/firebase-auth-compat.js',
   'js/db.js', 'js/login.js', 'js/sync.js', 'js/report.js', 'js/camera.js', 'js/analyze.js',
   'js/morpho.js', 'js/annotate.js', 'js/app.js', 'js/admin.js',
 ];
